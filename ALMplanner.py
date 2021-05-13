@@ -45,7 +45,7 @@ class ALMPlanner:
 
         self.cvar_end = 1
         self.cvar_end_lim = 0.95
-
+        self.feasibility = -1
         self.liabilities = ALMLiability(self)
         self.assets = ALMAssets(self)
         return
@@ -66,6 +66,28 @@ class ALMPlanner:
         tic = time.time()
         self.buyandhold = ALMBuyAndHold(self)
         print(f"Buy-And-Hold generated in {np.round(time.time()-tic,2)} s")
+        return
+
+    def check_feasibility(self):
+        tic = time.time()
+        HigherAsset = ALMCheckFeasibility(self)
+        status = HigherAsset.formulation.solve()
+        print(f"check feasibility ended in {np.round(time.time()-tic,2)} s with {lp.constants.LpStatus[status]} solution")
+        self.feasibility_coeff = HigherAsset.mod_asset[1].varValue
+        if self.feasibility_coeff > 0:
+            self.feasibility = 0
+            print(f"Unfeasible problem: suggested +{np.round(self.feasibility_coeff*100,2)}%  on assets")
+        else:
+            self.feasibility = 1
+            print(f"Feasible problem")
+        return
+
+    def get_feasibility(self):
+        if self.feasibility > -1:
+            for label in self.assets.set:
+                self.assets.value[label] = self.assets.value[label]*(1+self.feasibility_coeff)
+        else:
+            print("ERROR: No feasiblity information")
         return
 
     def solve_BAH(self):
@@ -133,8 +155,6 @@ class ALMPlanner:
                 self.solution.Z_distr[l] = self.model.Z[l].varValue
             for n in N:
                 self.solution.liab_end_distr[n] = self.model.Q_end[n].varValue
-                #self.solution.V_end_distr[n] = self.model.V_end[n].varValue
-            #self.solution.VaR_end = self.model.gamma_end[1].varValue
         
         return
 
@@ -342,8 +362,6 @@ class ALMModel_V1():
         alfa = Planner.liabilities.cvar_lim
         Scenario= Planner.Scenario
         base_portfolio = Planner.user_portfolio
-        #cvar_end = Planner.cvar_end
-        #alfa_end = Planner.cvar_end_lim
 
         At = Planner.assets.period
         Lt = Planner.liabilities.period
@@ -356,11 +374,9 @@ class ALMModel_V1():
         V = lp.LpVariable.dicts(name = "V", indexs = (L,N), lowBound = 0, cat = "Continuous")
         W_end = lp.LpVariable.dicts(name = "W_end", indexs = (A,P), lowBound = 0, cat = "Continuous")
         Q_end = lp.LpVariable.dicts(name = "Q_end", indexs = (N), lowBound = 0, cat = "Continuous")
-        #gamma_end = lp.LpVariable.dicts(name = "gamma_end", indexs = [1], cat = "Continuous")
-        #V_end = lp.LpVariable.dicts(name = "V_end", indexs = (N), lowBound = 0, cat = "Continuous")
         
         # Objective Function
-        model += lp.lpSum(Z[l] for l in L) + lp.lpSum(Q_end[n] for n in N)/(len(N)*sum(Liab_TG.values()))
+        model += lp.lpSum(Z[l] for l in L) + lp.lpSum(Q_end[n] for n in N)/(len(N)*len(T)/12)
         
         # Constraints
         for l in L:
@@ -386,10 +402,6 @@ class ALMModel_V1():
             model += gamma[l] + lp.lpSum(V[l][n] for n in N)/(len(N)*(1-alfa[l])) <= Liab_TG[l] - Liab_LB[l]
             for n in N:
                 model += V[l][n] >= Liab_TG[l] - Q[l][n] - gamma[l]
-        
-        #model += gamma_end + lp.lpSum(V_end[n] for n in N)/(len(N)*(1-alfa_end)) <= cvar_end*lp.lpSum(W_end[a][p] for a in A for p in P)
-        #for n in N:
-        #    model += V_end[n] >= lp.lpSum(W_end[a][p] for a in A for p in P) - Q_end[n] - gamma_end
     
         # init
         self.formulation = model
@@ -400,10 +412,92 @@ class ALMModel_V1():
         self.V = V
         self.W_end = W_end
         self.Q_end = Q_end
-        #self.gamma_end = gamma_end
-        #self.V_end = V_end
         return
 
+
+class ALMCheckFeasibility():
+
+    def __init__(self, Planner):
+        
+        model = lp.LpProblem(name = "ALMCheckFeasibility", sense = lp.LpMinimize)
+
+        # Sets:
+        T = Planner.T
+        self.T = T
+        A = Planner.assets.set 
+        self.A = A
+        L = Planner.liabilities.set
+        self.L = L
+        P = Planner.P
+        self.P = P
+        N = Planner.N
+        self.N = N
+
+        # Parameters: 
+        Liab_TG = Planner.liabilities.value_tg
+        Liab_LB = Planner.liabilities.value_lb
+        Assets = Planner.assets.value
+        alfa = Planner.liabilities.cvar_lim
+        Scenario= Planner.Scenario
+        base_portfolio = Planner.user_portfolio
+
+        At = Planner.assets.period
+        Lt = Planner.liabilities.period
+
+        # Variables
+        W = lp.LpVariable.dicts(name = "W", indexs = (A,L,P), lowBound = 0, cat = "Continuous")
+        Q = lp.LpVariable.dicts(name = "Q", indexs = (L,N), lowBound = 0, cat = "Continuous")
+        Z = lp.LpVariable.dicts(name = "Z", indexs = (L), lowBound = 0, cat = "Continuous")
+        gamma = lp.LpVariable.dicts(name = "gamma", indexs = (L), cat = "Continuous")
+        V = lp.LpVariable.dicts(name = "V", indexs = (L,N), lowBound = 0, cat = "Continuous")
+        W_end = lp.LpVariable.dicts(name = "W_end", indexs = (A,P), lowBound = 0, cat = "Continuous")
+        Q_end = lp.LpVariable.dicts(name = "Q_end", indexs = (N), lowBound = 0, cat = "Continuous")
+        mod_liab = lp.LpVariable.dicts(name = "mod_liab", indexs = [1], lowBound = 0, upBound= 1, cat = "Continuous")
+        mod_asset = lp.LpVariable.dicts(name = "mod_asset", indexs = [1], lowBound = 0, cat = "Continuous")
+        
+        # Objective Function
+        model += mod_asset[1]
+
+        # Constraints
+        # TEMP: fix liab
+        model += mod_liab[1] == 0
+
+        for l in L:
+            model += Z[l] <= Liab_TG[l]-Liab_TG[l]*mod_liab[1]
+            model += Z[l]*len(N) <= lp.lpSum(Q[l][n] for n in N)
+        
+        for l in L:
+            for n in N:
+                model += Q[l][n] == lp.lpSum(W[a][l][p]*np.exp(np.sum(Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P)
+        
+        for n in N:
+            model += Q_end[n] == lp.lpSum(W_end[a][p]* np.exp(np.sum(Scenario[p][n][At[a]:])) for a in A for p in P)
+        
+        for a in A:
+            L_feas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))>At[a]]
+            L_unfeas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))<=At[a]]
+            model += lp.lpSum(W[a][l][p] for l in L_feas for p in P) + lp.lpSum(W_end[a][p] for p in P) == Assets[a]+mod_asset[1]*Assets[a]
+            model += lp.lpSum(W[a][l][p] for l in L_unfeas for p in P) == 0
+            for p in P:
+                model += W_end[a][p] == lp.lpSum(W_end[a][p] for p in P)*base_portfolio[p]
+        
+        for l in L:
+            model += gamma[l] + lp.lpSum(V[l][n] for n in N)/(len(N)*(1-alfa[l])) <= Liab_TG[l] - Liab_LB[l] - mod_liab[1]*Liab_TG[l] + mod_liab[1]*Liab_LB[l]
+            for n in N:
+                model += V[l][n] >= Liab_TG[l]-mod_liab[1]*Liab_TG[l] - Q[l][n] - gamma[l]
+    
+        # init
+        self.formulation = model
+        self.W = W
+        self.Q = Q
+        self.Z = Z
+        self.gamma = gamma
+        self.V = V
+        self.W_end = W_end
+        self.Q_end = Q_end
+        self.mod_asset = mod_asset
+        self.mod_liab = mod_liab
+        return
         
 
 class ALMModel_V2():
@@ -445,7 +539,68 @@ class ALMModel_V2():
         # Constraints      
         for l in L:
             for n in N:
-                model += Q[l][n] == lp.lpSum(W[a][l][p]*np.exp(np.sum(Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P)
+                model += Q[l][n] == lp.lpSum(W[a][l][p]*np.exp(np.sum(self.Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P)
+        
+        for a in A:
+            L_feas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))>At[a]]
+            L_unfeas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))<=At[a]]
+            model += lp.lpSum(W[a][l][p] for l in L_feas for p in P) <= Max_Assets[a]
+            model += lp.lpSum(W[a][l][p] for l in L_unfeas for p in P) == 0
+        
+        for l in L:
+            model += gamma[l] + lp.lpSum(V[l][n] for n in N)/(len(N)*(1-alfa[l])) <= 0
+            for n in N:
+                model += V[l][n] >= Liab_TG[l] - Q[l][n] - gamma[l]
+        
+        # init
+        self.formulation = model
+        self.W = W
+        self.Q = Q
+        self.Z = Z
+        self.gamma = gamma
+        self.V = V
+        return
+
+class ALMModel_V3():
+
+    def __init__(self, Planner):
+        
+        model = lp.LpProblem(name = "ALMplanner", sense = lp.LpMinimize)
+
+        # Sets:
+        T = Planner.T
+        self.T = T
+        A = Planner.assets.set 
+        self.A = A
+        L = Planner.liabilities.set
+        self.L = L
+        P = Planner.P
+        self.P = P
+        N = Planner.N
+        self.N = N
+
+        # Parameters: 
+        Liab_TG = Planner.liabilities.value_tg
+        Max_Assets = Planner.assets.value
+        alfa = Planner.liabilities.cvar_lim
+        ETF_GBM = Planner.ETF_GBM
+        At = Planner.assets.period
+        Lt = Planner.liabilities.period
+        
+        # Variables
+        W = lp.LpVariable.dicts(name = "W", indexs = (A,L,P), lowBound = 0, cat = "Continuous")
+        Q = lp.LpVariable.dicts(name = "Q", indexs = (L,N), lowBound = 0, cat = "Continuous")
+        Z = lp.LpVariable.dicts(name = "Z", indexs = (L), lowBound = 0, cat = "Continuous")
+        gamma = lp.LpVariable.dicts(name = "gamma", indexs = (L), cat = "Continuous")
+        V = lp.LpVariable.dicts(name = "V", indexs = (L,N), lowBound = 0, cat = "Continuous")
+        
+        # Objective Function
+        model += lp.lpSum(W[a][l][p] for a in A for l in L for p in P)
+        
+        # Constraints      
+        for l in L:
+            for n in N:
+                model += Q[l][n] == lp.lpSum(W[a][l][p]*np.exp(np.sum(self.Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P)
         
         for a in A:
             L_feas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))>At[a]]
