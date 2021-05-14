@@ -98,10 +98,10 @@ class ALMPlanner:
         status = self.buyandhold.formulation.solve()
         print(f"Solve ended in {np.round(time.time()-tic,2)} s with {lp.constants.LpStatus[status]} solution")
         self.solution_BAH = ALMSolution(status)
-        A = self.model.A
-        L = self.model.L
-        P = self.model.P
-        N = self.model.N
+        A = self.assets.set
+        L = self.liabilities.set
+        P = self.P
+        N = self.N
 
         if status == 1:
             for a in A:
@@ -131,10 +131,10 @@ class ALMPlanner:
         status = self.model.formulation.solve()
         print(f"Solve ended in {np.round(time.time()-tic,2)} s with {lp.constants.LpStatus[status]} solution")
         self.solution = ALMSolution(status)
-        A = self.model.A
-        L = self.model.L
-        P = self.model.P
-        N = self.model.N
+        A = self.assets.set
+        L = self.liabilities.set
+        P = self.P
+        N = self.N
 
         if status == 1:
             for a in A:
@@ -162,122 +162,8 @@ class ALMPlanner:
                 #self.solution.Z_distr[l] = self.model.Z[l].varValue
             for n in N:
                 self.solution.liab_end_distr[n] = self.model.Q_end[n].varValue
-
-        
         return
 
-
-    def display_old(self, bar_width):
-        portfolio = pd.Series(self.user_portfolio.values(),index = self.user_portfolio.keys())
-
-        mu = np.dot(self.Scenario_mu, portfolio)
-        sigma = np.sqrt(np.dot(np.dot(portfolio,self.Scenario_sigma),portfolio))
-
-        T = pd.date_range(self.start, self.end, freq="M")
-        month = np.arange(len(T))
-
-        Assets = self.assets.lists()
-        Liabilities = self.liabilities.lists()
-
-        SMF = pd.DataFrame({"Date":T,"Month since Start":month}).merge(Assets[["Month since Start","Asset Value"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Target Liability", "Lowerbound Liability", "CVaR Level"]], how = "left", on = "Month since Start").fillna(0).reset_index()
-
-        Ass_val = SMF["Asset Value"]
-        Liab_val = SMF["Target Liability"]
-        low_Liab_val = SMF["Lowerbound Liability"]
-
-        instants = np.arange(len(SMF.index))
-        inst_mat = np.tile(instants, (len(instants),1))
-        inst_mat = np.maximum(inst_mat - inst_mat.T,0)
-        
-        mu_mat = inst_mat * mu
-        sigma_mat = np.sqrt(inst_mat) * sigma
-
-        avg_Cap_mat = np.exp(mu_mat)
-        up_Cap_mat = np.exp(mu_mat + 2*sigma_mat)
-        low_Cap_mat = np.exp(mu_mat - 2*sigma_mat)
-        
-        Asset_flow = np.triu(np.tile(Ass_val, ((len(instants),1))).T)
-
-        tot_asset = Ass_val.sum()
-
-        Liab_flow = np.triu(np.tile(Liab_val, ((len(instants),1))).T)
-        low_Liab_flow = np.triu(np.tile(low_Liab_val, ((len(instants),1))).T)
-
-        avg_capitalized_value = np.maximum(np.sum(np.multiply(avg_Cap_mat,Asset_flow - Liab_flow), axis = 0),0)
-        up_capitalized_value = np.maximum(np.sum(np.multiply(up_Cap_mat,Asset_flow - Liab_flow), axis = 0),0)
-        low_capitalized_value = np.maximum(np.sum(np.multiply(low_Cap_mat,Asset_flow - low_Liab_flow), axis = 0),0)
-
-        plt.figure(figsize = (15,10))
-        plt.bar(x = SMF.index, height = SMF["Asset Value"], width = bar_width, color = "lightgreen")
-        plt.bar(x = SMF.index, height = -SMF["Target Liability"], width = bar_width, color = "red")
-        plt.plot(SMF.index, np.cumsum(SMF["Asset Value"])-np.cumsum(SMF["Target Liability"]), color = "black")
-        plt.plot(SMF.index, avg_capitalized_value, color = "blue")
-        plt.fill_between(SMF.index,up_capitalized_value,low_capitalized_value, color = "lightblue")
-        #plt.fill_between(SMF.index,avg_capitalized_value,low_capitalized_value, color = "lightblue")
-        plt.grid()
-
-        plt.show()
-        return
-
-    def display(self, bar_width):
-        ETF_GBM = self.__DF_Scenario__
-
-        portfolio = pd.Series(self.user_portfolio.values(),index = self.user_portfolio.keys())
-        userpf_capfact = np.dot(np.exp(ETF_GBM[self.P]), portfolio)
-        cap_factor_ptf = np.reshape(userpf_capfact, (int(len(userpf_capfact)/len(self.N)),len(self.N)))
-
-        T = pd.date_range(self.start, self.end, freq="M")
-        month = np.arange(len(T))
-
-        Assets = self.assets.lists()
-        Liabilities = self.liabilities.lists()
-
-        SMF = pd.DataFrame({"Date":T,"Month since Start":month}).merge(Assets[["Month since Start","Asset Value"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Target Liability", "Lowerbound Liability", "CVaR Level"]], how = "left", on = "Month since Start").fillna(0).reset_index()
-
-        Ass_val = SMF["Asset Value"]
-        Liab_val = SMF["Target Liability"]
-        low_Liab_val = SMF["Lowerbound Liability"]
-
-        up_capitalized_value_n = np.zeros(shape = (len(month), len(self.N)))
-        med_capitalized_value_n = np.zeros(shape = (len(month), len(self.N)))
-        low_capitalized_value_n = np.zeros(shape = (len(month), len(self.N)))
-        for i in month:
-            if i==0:
-                up_capitalized_value_n[i,:] = Ass_val[i]
-                med_capitalized_value_n[i,:] = Ass_val[i]
-                low_capitalized_value_n[i,:] = Ass_val[i]
-            else:
-                up_capitalized_value_n[i,:] = np.maximum(up_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - Liab_val[i],0)
-                med_capitalized_value_n[i,:] = np.maximum(med_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - (Liab_val[i]+low_Liab_val[i])/2,0)
-                low_capitalized_value_n[i,:] = np.maximum(low_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - low_Liab_val[i], 0)
-
-        med_capitalized_value = np.quantile(med_capitalized_value_n, 0.5,axis=1)
-        up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
-        low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
-        plot_df = pd.DataFrame()
-        
-        plot_df["x"] = SMF["Month since Start"]
-        plot_df["ass"] = SMF["Asset Value"]
-        plot_df["liab"] = -SMF["Target Liability"]
-        plot_df["cumsum"] = np.cumsum(plot_df["ass"]+plot_df["liab"])
-        plot_df["up_cap"] = up_capitalized_value
-        plot_df["low_cap"] = low_capitalized_value
-        plot_df["med_cap"] = med_capitalized_value
-        
-        fig = go.Figure(data = [
-            go.Scatter(x = plot_df["x"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="95% quantile"),
-            go.Scatter(x = plot_df["x"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "5% quantile"),
-            go.Scatter(x = plot_df["x"], y=med_capitalized_value, mode = "lines", line_color = "blue", name = "50% quantile"),
-            go.Bar(x = plot_df["x"], y=plot_df["ass"], width = bar_width, marker_color = "lightgreen", name = "Assets"),
-            go.Bar(x = plot_df["x"], y=plot_df["liab"], width = bar_width,marker_color = "red", name = "Liabilities"),
-            go.Scatter(x = plot_df["x"], y=plot_df["cumsum"], mode = "lines", line_color = "black", name = "Assets-Liabilities")
-        ])
-
-        fig = standardized_chart(fig) 
-        fig.update_layout(showlegend=False)
-        fig.show()
-    
-        return
 
 
 class ALMLiability():
@@ -571,76 +457,38 @@ class ALMModel_V2():
 class ALMModel_V3():
 
     def __init__(self, Planner):
-        
-        model = lp.LpProblem(name = "ALMplanner", sense = lp.LpMaximize)
-
-        # Sets:
-        T = Planner.T
-        self.T = T
-        A = Planner.assets.set 
-        self.A = A
-        L = Planner.liabilities.set
-        self.L = L
-        P = Planner.P
-        self.P = P
-        N = Planner.N
-        self.N = N
-
-        # Parameters: 
-        Liab_TG = Planner.liabilities.value_tg
-        Liab_LB = Planner.liabilities.value_lb
-        Assets = Planner.assets.value
-        alfa = Planner.liabilities.cvar_lim
-        Scenario= Planner.Scenario
-        base_portfolio = Planner.user_portfolio
-
-        At = Planner.assets.period
-        Lt = Planner.liabilities.period
+        self.formulation = lp.LpProblem(name = "ALMplanner", sense = lp.LpMaximize)
 
         # Variables
-        W = lp.LpVariable.dicts(name = "W", indexs = (A,L,P), lowBound = 0, cat = "Continuous")
-        Q = lp.LpVariable.dicts(name = "Q", indexs = (L,N), lowBound = 0, cat = "Continuous")
-        Q_ex = lp.LpVariable.dicts(name = "Q_ex", indexs = (L,N), lowBound = 0, cat = "Continuous")
-        Z = lp.LpVariable.dicts(name = "Z", indexs = (L), lowBound = 0, cat = "Continuous")
-        gamma = lp.LpVariable.dicts(name = "gamma", indexs = (L), cat = "Continuous")
-        V = lp.LpVariable.dicts(name = "V", indexs = (L,N), lowBound = 0, cat = "Continuous")
-        W_end = lp.LpVariable.dicts(name = "W_end", indexs = (A,P), lowBound = 0, cat = "Continuous")
-        Q_end = lp.LpVariable.dicts(name = "Q_end", indexs = (N), lowBound = 0, cat = "Continuous")
+        set_variables(self, Planner)
         
         # Objective Function
-        model += lp.lpSum(Q[l][n] for l in L for n in N)/len(N) + lp.lpSum(Q_end[n] for n in N)/(len(N)*sum(Assets.values()))
+        add_objective_function(self, Planner)
+
+        # Asset constraints GoalBased
+        add_asset_constrains_GB(self, Planner)
+        #for a in Planner.assets.set:
+        #    L_feas = np.array(list(Planner.liabilities.period.keys()))[np.array(list(Planner.liabilities.period.values()))>Planner.assets.period[a]]
+        #    L_unfeas = np.array(list(Planner.liabilities.period.keys()))[np.array(list(Planner.liabilities.period.values()))<=Planner.assets.period[a]]
+        #    self.formulation += lp.lpSum(self.W[a][l][p] for l in L_feas for p in Planner.P) + lp.lpSum(self.W_end[a][p] for p in Planner.P) == Planner.assets.value[a]
+        #    self.formulation += lp.lpSum(self.W[a][l][p] for l in L_unfeas for p in Planner.P) == 0
+        #    for p in Planner.P:
+        #        self.formulation += self.W_end[a][p] == lp.lpSum(self.W_end[a][p] for p in Planner.P)*Planner.user_portfolio[p]
+        # Liabilities Projection constraints
+        for l in Planner.liabilities.set:
+            for n in Planner.N:
+                self.formulation += self.Q[l][n] == lp.lpSum(self.W[a][l][p]*np.exp(np.sum(Planner.Scenario[p][n][Planner.assets.period[a]:Planner.liabilities.period[l]])) for a in Planner.assets.set for p in Planner.P) - self.Q_ex[l][n]
+                self.formulation += self.Q[l][n] <= Planner.liabilities.value_tg[l]
         
-        for l in L:
-            for n in N:
-                model += Q[l][n] == lp.lpSum(W[a][l][p]*np.exp(np.sum(Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P) - Q_ex[l][n]
-                model += Q[l][n] <= Liab_TG[l]
+        # Extra wealth management constraints
+        for n in Planner.N:
+            self.formulation += self.Q_end[n] == lp.lpSum(self.W_end[a][p]*np.exp(np.sum(Planner.Scenario[p][n][Planner.assets.period[a]:])) for a in Planner.assets.set for p in Planner.P) + lp.lpSum(self.Q_ex[l][n]*Planner.user_portfolio[p]*np.exp(np.sum(Planner.Scenario[p][n][Planner.liabilities.period[l]:])) for l in Planner.liabilities.set for p in Planner.P)
         
-        for n in N:
-            model += Q_end[n] == lp.lpSum(W_end[a][p]*np.exp(np.sum(Scenario[p][n][At[a]:])) for a in A for p in P) + lp.lpSum(Q_ex[l][n]*np.round(base_portfolio[p]*np.exp(np.sum(Scenario[p][n][Lt[l]:])), 5) for l in L for p in P)
-        
-        for a in A:
-            L_feas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))>At[a]]
-            L_unfeas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))<=At[a]]
-            model += lp.lpSum(W[a][l][p] for l in L_feas for p in P) + lp.lpSum(W_end[a][p] for p in P) == Assets[a]
-            model += lp.lpSum(W[a][l][p] for l in L_unfeas for p in P) == 0
-            for p in P:
-                model += W_end[a][p] == lp.lpSum(W_end[a][p] for p in P)*base_portfolio[p]
-        
-        for l in L:
-            model += gamma[l] + lp.lpSum(V[l][n] for n in N)/(len(N)*(1-alfa[l])) <= Liab_TG[l] - Liab_LB[l]
-            for n in N:
-                model += V[l][n] >= Liab_TG[l] - Q[l][n] - gamma[l]
-    
-        # init
-        self.formulation = model
-        self.W = W
-        self.Q = Q
-        self.Q_ex = Q_ex
-        self.Z = Z
-        self.gamma = gamma
-        self.V = V
-        self.W_end = W_end
-        self.Q_end = Q_end
+        # Cvar Liabilities constrints    
+        for l in Planner.liabilities.set:
+            self.formulation += self.gamma[l] + lp.lpSum(self.V[l][n] for n in Planner.N)/(len(Planner.N)*(1-Planner.liabilities.cvar_lim[l])) <= Planner.liabilities.value_tg[l] - Planner.liabilities.value_lb[l]
+            for n in Planner.N:
+                self.formulation += self.V[l][n] >= Planner.liabilities.value_tg[l] - self.Q[l][n] - self.gamma[l]
         return
 
 
@@ -665,7 +513,7 @@ class ALMSolution():
 class ALMBuyAndHold():
 
     def __init__(self, Planner):
-        model = lp.LpProblem(name = "ALMbuyandhold", sense = lp.LpMaximize)
+        self.formulation = lp.LpProblem(name = "ALMbuyandhold", sense = lp.LpMaximize)
 
         # Sets:
         T = Planner.T
@@ -693,63 +541,59 @@ class ALMBuyAndHold():
         Lt = Planner.liabilities.period
 
         # Variables
-        W = lp.LpVariable.dicts(name = "W", indexs = (A,L,P), lowBound = 0, cat = "Continuous")
-        Q = lp.LpVariable.dicts(name = "Q", indexs = (L,N), lowBound = 0, cat = "Continuous")
-        Z = lp.LpVariable.dicts(name = "Z", indexs = (L), lowBound = 0, cat = "Continuous")
-        W_end = lp.LpVariable.dicts(name = "W_end", indexs = (A,P), lowBound = 0, cat = "Continuous")
-        Q_end = lp.LpVariable.dicts(name = "Q_end", indexs = (N), lowBound = 0, cat = "Continuous")
-
+        self.W = lp.LpVariable.dicts(name = "W", indexs = (A,L,P), lowBound = 0, cat = "Continuous")
+        self.Q = lp.LpVariable.dicts(name = "Q", indexs = (L,N), lowBound = 0, cat = "Continuous")
+        self.Z = lp.LpVariable.dicts(name = "Z", indexs = (L), lowBound = 0, cat = "Continuous")
+        self.W_end = lp.LpVariable.dicts(name = "W_end", indexs = (A,P), lowBound = 0, cat = "Continuous")
+        self.Q_end = lp.LpVariable.dicts(name = "Q_end", indexs = (N), lowBound = 0, cat = "Continuous")
         
         # Objective Function
-        model += lp.lpSum(Z[l] for l in L) + lp.lpSum(Q_end[n] for n in N)/(len(N)*sum(Liab_TG.values()))
-        
-        # Constraints
-        for l in L:
-            model += Z[l] <= Liab_TG[l]
-            model += Z[l]*len(N) <= lp.lpSum(Q[l][n] for n in N)
+        add_objective_function(self, Planner)
+        #model += lp.lpSum(Z[l] for l in L) + lp.lpSum(Q_end[n] for n in N)/(len(N)*sum(Liab_TG.values()))
         
         for l in L:
             for n in N:
-                model += Q[l][n] == lp.lpSum(W[a][l][p]*np.exp(np.sum(Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P)
+                self.formulation += self.Q[l][n] == lp.lpSum(self.W[a][l][p]*np.exp(np.sum(Scenario[p][n][At[a]:Lt[l]])) for a in A for p in P)
         
         for n in N:
-            model += Q_end[n] == lp.lpSum(W_end[a][p]* np.exp(np.sum(Scenario[p][n][At[a]:])) for a in A for p in P)
-            
+            self.formulation += self.Q_end[n] == lp.lpSum(self.W_end[a][p]* np.exp(np.sum(Scenario[p][n][At[a]:])) for a in A for p in P)
+
         Asset_al_split, Asset_aend_split = smart_asset_allocation(Planner)
 
         for a in A:
             L_feas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))>At[a]]
             L_unfeas = np.array(list(Lt.keys()))[np.array(list(Lt.values()))<=At[a]]
-            model += lp.lpSum(W[a][l][p] for l in L_unfeas for p in P) == 0
+            self.formulation += lp.lpSum(self.W[a][l][p] for l in L_unfeas for p in P) == 0
             for p in P:
-                model += W_end[a][p] == Asset_aend_split[a]*base_portfolio[p]
+                self.formulation += self.W_end[a][p] == Asset_aend_split[a]*base_portfolio[p]
                 for l in L_feas:
-                    model += W[a][l][p] == Asset_al_split[l][a]*base_portfolio[p]
+                    self.formulation += self.W[a][l][p] == Asset_al_split[l][a]*base_portfolio[p]
 
-        # init
-        self.formulation = model
-        self.W = W
-        self.Q = Q
-        self.Z = Z
-        self.W_end = W_end
-        self.Q_end = Q_end
-        #self.gamma_end = gamma_end
-        #self.V_end = V_end
         return
 
+def set_variables(model, Planner):
+    model.W = lp.LpVariable.dicts(name = "W", indexs = (Planner.assets.set,Planner.liabilities.set,Planner.P), lowBound = 0, cat = "Continuous")
+    model.Q = lp.LpVariable.dicts(name = "Q", indexs = (Planner.liabilities.set,Planner.N), lowBound = 0, cat = "Continuous")
+    model.Q_ex = lp.LpVariable.dicts(name = "Q_ex", indexs = (Planner.liabilities.set,Planner.N), lowBound = 0, cat = "Continuous")
+    model.gamma = lp.LpVariable.dicts(name = "gamma", indexs = (Planner.liabilities.set), cat = "Continuous")
+    model.V = lp.LpVariable.dicts(name = "V", indexs = (Planner.liabilities.set,Planner.N), lowBound = 0, cat = "Continuous")
+    model.W_end = lp.LpVariable.dicts(name = "W_end", indexs = (Planner.assets.set,Planner.P), lowBound = 0, cat = "Continuous")
+    model.Q_end = lp.LpVariable.dicts(name = "Q_end", indexs = (Planner.N), lowBound = 0, cat = "Continuous")
 
-def standardized_chart(plt):
-    plt.update_layout(
-        paper_bgcolor = "white",
-        showlegend=True,
-        plot_bgcolor="white",
-        margin=dict(t=20,l=20,b=20,r=20)
-    )
-    plt.update_xaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
-    plt.update_yaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
-    plt.update_xaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
-    plt.update_yaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
-    return plt
+def add_objective_function(model, Planner):
+    model.formulation += lp.lpSum(model.Q[l][n] for l in Planner.liabilities.set for n in Planner.N)/len(Planner.N) + lp.lpSum(model.W_end[a][p] for a in Planner.assets.set for p in Planner.P)
+    return
+
+def add_asset_constrains_GB(model, Planner):
+    for a in Planner.assets.set:
+            L_feas = np.array(list(Planner.liabilities.period.keys()))[np.array(list(Planner.liabilities.period.values()))>Planner.assets.period[a]]
+            L_unfeas = np.array(list(Planner.liabilities.period.keys()))[np.array(list(Planner.liabilities.period.values()))<=Planner.assets.period[a]]
+            model.formulation += lp.lpSum(model.W[a][l][p] for l in L_feas for p in Planner.P) + lp.lpSum(model.W_end[a][p] for p in Planner.P) == Planner.assets.value[a]
+            model.formulation += lp.lpSum(model.W[a][l][p] for l in L_unfeas for p in Planner.P) == 0
+            for p in Planner.P:
+                model.formulation += model.W_end[a][p] == lp.lpSum(model.W_end[a][p] for p in Planner.P)*Planner.user_portfolio[p]
+
+
 
 
 def smart_asset_allocation(Planner):
@@ -779,6 +623,80 @@ def smart_asset_allocation(Planner):
 
     asset_end = Assets - asset_split.T.sum()
     return asset_split, asset_end
+
+### CHARTS
+
+def standardized_chart(plt):
+    plt.update_layout(
+        paper_bgcolor = "white",
+        showlegend=True,
+        plot_bgcolor="white",
+        margin=dict(t=20,l=20,b=20,r=20)
+    )
+    plt.update_xaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
+    plt.update_yaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
+    plt.update_xaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
+    plt.update_yaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
+    return plt
+
+def display(Planner, bar_width):
+        ETF_GBM = Planner.__DF_Scenario__
+
+        portfolio = pd.Series(Planner.user_portfolio.values(),index = Planner.user_portfolio.keys())
+        userpf_capfact = np.dot(np.exp(ETF_GBM[Planner.P]), portfolio)
+        cap_factor_ptf = np.reshape(userpf_capfact, (int(len(userpf_capfact)/len(Planner.N)),len(Planner.N)))
+
+        T = pd.date_range(Planner.start, Planner.end, freq="M")
+        month = np.arange(len(T))
+
+        Assets = Planner.assets.lists()
+        Liabilities = Planner.liabilities.lists()
+
+        SMF = pd.DataFrame({"Date":T,"Month since Start":month}).merge(Assets[["Month since Start","Asset Value"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Target Liability", "Lowerbound Liability", "CVaR Level"]], how = "left", on = "Month since Start").fillna(0).reset_index()
+
+        Ass_val = SMF["Asset Value"]
+        Liab_val = SMF["Target Liability"]
+        low_Liab_val = SMF["Lowerbound Liability"]
+
+        up_capitalized_value_n = np.zeros(shape = (len(month), len(Planner.N)))
+        med_capitalized_value_n = np.zeros(shape = (len(month), len(Planner.N)))
+        low_capitalized_value_n = np.zeros(shape = (len(month), len(Planner.N)))
+        for i in month:
+            if i==0:
+                up_capitalized_value_n[i,:] = Ass_val[i]
+                med_capitalized_value_n[i,:] = Ass_val[i]
+                low_capitalized_value_n[i,:] = Ass_val[i]
+            else:
+                up_capitalized_value_n[i,:] = np.maximum(up_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - Liab_val[i],0)
+                med_capitalized_value_n[i,:] = np.maximum(med_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - (Liab_val[i]+low_Liab_val[i])/2,0)
+                low_capitalized_value_n[i,:] = np.maximum(low_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - low_Liab_val[i], 0)
+
+        med_capitalized_value = np.quantile(med_capitalized_value_n, 0.5,axis=1)
+        up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
+        low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
+        plot_df = pd.DataFrame()
+        
+        plot_df["x"] = SMF["Month since Start"]
+        plot_df["ass"] = SMF["Asset Value"]
+        plot_df["liab"] = -SMF["Target Liability"]
+        plot_df["cumsum"] = np.cumsum(plot_df["ass"]+plot_df["liab"])
+        plot_df["up_cap"] = up_capitalized_value
+        plot_df["low_cap"] = low_capitalized_value
+        plot_df["med_cap"] = med_capitalized_value
+        
+        fig = go.Figure(data = [
+            go.Scatter(x = plot_df["x"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="95% quantile"),
+            go.Scatter(x = plot_df["x"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "5% quantile"),
+            go.Scatter(x = plot_df["x"], y=med_capitalized_value, mode = "lines", line_color = "blue", name = "50% quantile"),
+            go.Bar(x = plot_df["x"], y=plot_df["ass"], width = bar_width, marker_color = "lightgreen", name = "Assets"),
+            go.Bar(x = plot_df["x"], y=plot_df["liab"], width = bar_width,marker_color = "red", name = "Liabilities"),
+            go.Scatter(x = plot_df["x"], y=plot_df["cumsum"], mode = "lines", line_color = "black", name = "Assets-Liabilities")
+        ])
+
+        fig = standardized_chart(fig) 
+        fig.update_layout(showlegend=False)
+        fig.show()
+        return
 
 if __name__ == "__main__":
     problem = ALMPlanner(start = "Jan 2021", end = "Jan 2041")
