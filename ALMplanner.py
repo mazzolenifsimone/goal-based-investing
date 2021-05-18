@@ -292,12 +292,12 @@ def smart_asset_allocation(planner):
     # in .lists method elements are ordered by Date
     Lt = Liabs_list["Month since Start"]
     L = Liabs_list.index
-    Liab_tg = Liabs_list["Goal Value"]
+    #Liab_tg = Liabs_list["Goal Value"]
     Liab_lb = Liabs_list["Goal Lower Bound"]
     At = Assets_list["Month since Start"]
     A = Assets_list.index
     Assets = Assets_list["Asset Value"]
-
+    # DataFrame structure 
     asset_split = pd.DataFrame(0,columns = L, index = A)
     total_asset = Assets.sum()
     total_liab_lb = Liab_lb.sum()
@@ -346,21 +346,3 @@ def save_solution(model,planner):
     for n in planner.N:
         model.solution.final_exwealth[n] = model.Q_end[n].varValue
     return
-
-if __name__ == "__main__":
-    problem = ALMplanner(start = "Jan 2021", end = "Jan 2041")
-    # set planned liabilities
-    problem.liabilities.insert("car", "Jan 2026", 25000, 25000*0.65)
-    problem.liabilities.insert("university", "Jan 2029", 50000, 50000*0.95)
-    problem.liabilities.insert("hawaii", "Jan 2037", 34000, 34000*0.85)
-    # set planned assets 
-    problem.assets.insert("ass_0","Jan 2021",30000)
-    recurrent_dates = ["Jan 2022", "Jan 2023", "Jan 2024", "Jan 2025", "Jan 2026", "Jan 2027"]
-    for i in np.arange(len(recurrent_dates)):
-        problem.assets.insert("ass_" + str(i+1),recurrent_dates[i],10000)
-
-    # generate problem
-    
-    #problem.generate_model()
-    #print("model generated")
-    #problem.solve()

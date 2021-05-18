@@ -68,3 +68,79 @@ def display(planner, bar_width=6):
         fig.update_layout(showlegend=False)
         fig.show()
         return
+
+def AssetAllocationChart(planner, solution, n_scen=None, perc = False):
+    P = planner.P
+    L = planner.liabilities.set
+    T = planner.T
+    Q_nscen = np.zeros(shape = (len(P),len(L)))
+    Val_tl = {}
+    index = -1
+    label_period = [[k, v] for k,v in planner.assets.period.items()]
+    label_value = [[k, v] for k,v in planner.assets.value.items()]
+    period_value_df = pd.DataFrame(label_period, columns = ["Label", "Period"]).merge(pd.DataFrame(label_value, columns = ["Label", "Value"]))
+
+    for p in P:
+        index = index+1
+        Val_tl[p] = np.zeros(shape = (len(T), len(L)))
+        for l in np.arange(len(L)):
+            for t in np.arange(len(T)):
+                if n_scen is None:
+                    cap_factor = np.exp(planner.Scenario_mu[p])
+                else :
+                    cap_factor = np.exp(planner.Scenario[p][n_scen][t])
+                if t < planner.liabilities.period[L[l]]:
+                    new_asset_label = period_value_df.loc[period_value_df.Period == t , "Label" ].values
+                    new_asset = [solution.asset_to_goal[a][L[l]][p] for a in new_asset_label]
+                    if t==0:
+                        Val_tl[p][t,l] = sum(new_asset)*cap_factor
+                    else:
+                        Val_tl[p][t,l] = (Val_tl[p][t-1,l] + sum(new_asset))*cap_factor
+
+                elif t == planner.liabilities.period[L[l]]:
+                    Q_nscen[index,l] = Val_tl[p][t-1,l]
+
+    Val_end_t = {}
+    index = -1
+    for p in P:
+        index = index+1
+        Val_end_t[p] = np.zeros(shape = (len(T)))
+        for t in np.arange(len(T)):
+            if n_scen is None:
+                cap_factor = np.exp(planner.Scenario_mu[p])
+            else:
+                cap_factor = np.exp(planner.Scenario[p][n_scen][t])
+            ex_wealth = 0
+            for l in np.arange(len(L)):
+                if t == planner.liabilities.period[L[l]]:
+                    ex_wealth = ex_wealth + max(sum(Q_nscen[:,l]) - planner.liabilities.value_tg[L[l]], 0)
+
+            new_asset_label = period_value_df.loc[period_value_df.Period == t , "Label" ].values
+            new_asset = [solution.asset_to_exwealth[a][p] for a in new_asset_label]
+            ex_wealth_p = ex_wealth*planner.user_portfolio[p]
+            if t==0:
+                Val_end_t[p][t] = sum(new_asset)*cap_factor
+            else:
+                Val_end_t[p][t] = (Val_end_t[p][t-1] + sum(new_asset) + ex_wealth_p)*cap_factor
+
+
+    Val_t = {}
+    for p in P:
+        Val_t[p] = np.sum(Val_tl[p], axis = 1) + Val_end_t[p] 
+
+    AssetAllocationNominal = pd.DataFrame(Val_t)
+    AssetAllocationNominal[AssetAllocationNominal<0] = 0
+    AAN_perc = AssetAllocationNominal.divide(AssetAllocationNominal.sum(axis=1), axis=0)
+
+    if perc:
+        AAN_perc = AAN_perc.reset_index()
+        AAN_perc = AAN_perc.melt(id_vars=['index'], var_name='P', value_name='evo')
+        AAChart = px.area(AAN_perc, x="index", y = "evo", color = "P" )
+        AAChart.update_xaxes(range=[AAN_perc["index"].min(), AAN_perc["index"].max()])
+        AAChart.update_yaxes(range=[0, 1])
+    else:
+        AssetAllocationNominal = AssetAllocationNominal.reset_index()
+        AssetAllocationNominal = AssetAllocationNominal.melt(id_vars=['index'], var_name='P', value_name='evo')
+        AAChart = px.area(AssetAllocationNominal, x="index", y = "evo", color = "P")
+    AAChart = standardized_chart(AAChart)
+    return AAChart
