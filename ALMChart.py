@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def standardized_chart(plt):
+def standardized_chart(plt, perc = False):
     plt.update_layout(
         paper_bgcolor = "white",
         showlegend=True,
@@ -14,6 +14,8 @@ def standardized_chart(plt):
     plt.update_yaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
     plt.update_xaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
     plt.update_yaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
+    if perc:
+        plt.update_yaxes(range=[0, 1])
     return plt
 
 def display(planner, bar_width=6):
@@ -144,3 +146,27 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False):
         AAChart = px.area(AssetAllocationNominal, x="index", y = "evo", color = "P")
     AAChart = standardized_chart(AAChart)
     return AAChart
+
+def AssetSplitDetailsChart(planner, solution, groupby):
+    P = planner.P
+    A = planner.assets.set
+    L = planner.liabilities.set
+    Assets_split = pd.DataFrame(index = np.arange(len(P)*len(A)*(len(L)+1)), columns = ["Asset", "Goal", "ETF", "Value"])
+    iter = -1
+    for a in A:
+        for p in P:
+            for l in L:
+                iter = iter+1
+                Assets_split["Asset"][iter] = a
+                Assets_split["Goal"][iter] = l
+                Assets_split["ETF"][iter] = p
+                Assets_split["Value"][iter] = solution.asset_to_goal[a][l][p]
+            iter = iter+1
+            Assets_split["Asset"][iter] = a
+            Assets_split["Goal"][iter] = "extra_wealth"
+            Assets_split["ETF"][iter] = p
+            Assets_split["Value"][iter] = solution.asset_to_exwealth[a][p]
+    AssetGroupedBy = Assets_split[["Asset", groupby, "Value"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
+    ASDChart = px.bar(AssetGroupedBy, x="Asset", y = "Value", color = groupby)
+    ASDChart = standardized_chart(ASDChart)
+    return ASDChart
