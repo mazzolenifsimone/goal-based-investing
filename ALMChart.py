@@ -27,9 +27,9 @@ def display(planner, bar_width=6):
 
         SMF = planner.StandardModelForm()
 
-        Ass_val = SMF["Asset Value"]
-        Liab_val = SMF["Goal Value"]
-        low_Liab_val = SMF["Goal Lower Bound"]
+        Ass_val = SMF["Asset Value"].fillna(0)
+        Liab_val = SMF["Goal Value"].fillna(0)
+        low_Liab_val = SMF["Goal Lower Bound"].fillna(0)
 
         up_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
         med_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
@@ -47,26 +47,24 @@ def display(planner, bar_width=6):
         med_capitalized_value = np.quantile(med_capitalized_value_n, 0.5,axis=1)
         up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
         low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
-        plot_df = pd.DataFrame()
-        
-        plot_df["x"] = SMF["Month since Start"]
-        plot_df["ass"] = SMF["Asset Value"]
-        plot_df["liab"] = -SMF["Goal Value"]
-        plot_df["cumsum"] = np.cumsum(plot_df["ass"]+plot_df["liab"])
-        plot_df["up_cap"] = up_capitalized_value
-        plot_df["low_cap"] = low_capitalized_value
-        plot_df["med_cap"] = med_capitalized_value
         
         fig = go.Figure(data = [
             go.Scatter(x = SMF["Month since Start"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="95% quantile"),
             go.Scatter(x = SMF["Month since Start"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "5% quantile"),
             go.Scatter(x = SMF["Month since Start"], y=med_capitalized_value, mode = "lines", line_color = "blue", name = "50% quantile"),
-            go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "lightgreen", name = "Assets"),
-            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "red", name = "Goals"),
-            go.Scatter(x = SMF["Month since Start"], y=plot_df["cumsum"], mode = "lines", line_color = "black", name = "Neutral wealth consumption")
-        ])
+            go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "Assets",marker_line = dict(width = 1.5, color = "steelblue")),
+            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "Goals",marker_line = dict(width = 1.5, color = "dimgray")),
+            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "Goal LB"),
+            go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "Neutral wealth consumption")
+            ],
+            layout = go.Layout(barmode = "overlay")
+        )
 
-        fig = standardized_chart(fig) 
+        fig = standardized_chart(fig)
+        lowerlimit = min(-max(Liab_val),min(np.cumsum(Ass_val-Liab_val)))
+        upperlimit = max(med_capitalized_value)
+        margin = -lowerlimit*0.25
+        fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
         fig.update_layout(showlegend=False)
         fig.show()
         return
@@ -92,7 +90,7 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False):
                 else :
                     cap_factor = np.exp(planner.Scenario[p][n_scen][t])
                 if t < planner.liabilities.period[L[l]]:
-                    new_asset_label = period_value_df.loc[period_value_df.Period == t , "Label" ].values
+                    new_asset_label = period_value_df.loc[period_value_df.Period == t , "Label"].values
                     new_asset = [solution.asset_to_goal[a][L[l]][p] for a in new_asset_label]
                     if t==0:
                         Val_tl[p][t,l] = sum(new_asset)*cap_factor
@@ -170,3 +168,47 @@ def AssetSplitDetailsChart(planner, solution, groupby):
     ASDChart = px.bar(AssetGroupedBy, x="Asset", y = "Value", color = groupby)
     ASDChart = standardized_chart(ASDChart)
     return ASDChart
+
+def GoalRiskDetails(planner, solution, perc):
+    L = planner.liabilities.set
+    N = planner.N
+    Q_ln = {}
+    for l in L:
+        Q_ln[l] = np.zeros(shape = (len(N)))
+        for n in N:
+            Q_ln[l][n]=solution.goal_distr[l][N[n]]
+    Q_ln["ex_wealth"] = np.zeros(shape = (len(N)))
+    for n in N:
+        Q_ln["ex_wealth"][n]=solution.final_exwealth[N[n]]
+    df_Q_ln = pd.DataFrame(Q_ln)
+    # Goal Shortfall Prob Chart
+    df = pd.DataFrame(index = planner.liabilities.set)
+    conf_tg = pd.DataFrame(planner.liabilities.value_tg, columns = planner.liabilities.set, index = N)
+    conf_lb = pd.DataFrame(planner.liabilities.value_lb, columns = planner.liabilities.set, index = N)
+    df["Affordable"] = np.logical_and(df_Q_ln[planner.liabilities.set] < conf_tg, df_Q_ln[planner.liabilities.set] >= conf_lb).mean()
+    df["Failure"] = (df_Q_ln[planner.liabilities.set] < conf_lb).mean()
+    df = df.reset_index().rename(columns = {"index":"Goals"})
+    dfchart = pd.melt(df, id_vars=["Goals"], value_vars = ["Affordable", "Failure"], var_name = "Shortfall Cathegory", value_name = "Shortfall Probabilities")
+    GSPChart = px.bar(dfchart, x="Goals", y = "Shortfall Probabilities", color = "Shortfall Cathegory",color_discrete_sequence=['royalblue', "crimson"])
+    GSPChart = standardized_chart(GSPChart, perc = True)
+    # Goal Avg and Worst when shortfall
+    df = pd.DataFrame(index = planner.liabilities.set)
+    df["goal"] = pd.Series(planner.liabilities.value_tg, index = planner.liabilities.set)
+    df["avg"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] < conf_tg[planner.liabilities.set])].mean(),0)
+    df["avg_shortfall"] = df["goal"] - df["avg"]
+    df["lower_bound"] = pd.Series(planner.liabilities.value_lb, index = planner.liabilities.set)
+    df["worst"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] <= np.quantile(df_Q_ln[planner.liabilities.set],0.05,axis = 0))].mean(),0)
+    if perc:
+        df = np.divide(df.T, df["goal"], axis = 1).T
+    GAWChart = go.Figure(
+        data = [
+                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Goal",marker_line = dict(width = 1.5, color = "slategray")),
+                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name = "Average Value"),
+                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "slategray"), name = "LB Value"),
+                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="worst 5%", marker_color = "red")
+                ],
+        layout = go.Layout(barmode = "overlay")
+            )
+    GAWChart = standardized_chart(GAWChart, perc)
+
+    return GSPChart, GAWChart

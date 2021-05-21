@@ -56,7 +56,7 @@ class ALMplanner:
     def StandardModelForm(self):
         Assets = self.assets.lists()
         Liabilities = self.liabilities.lists()
-        SMF = pd.DataFrame({"Date":self.T,"Month since Start":np.arange(len(self.T))}).merge(Assets[["Month since Start","Asset Value"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Goal Value", "Goal Lower Bound", "CVaR Level"]], how = "left", on = "Month since Start").fillna(0).reset_index()
+        SMF = pd.DataFrame({"Date":self.T,"Month since Start":np.arange(len(self.T))}).merge(Assets[["Month since Start","Asset Value"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Goal Value", "Goal Lower Bound", "CVaR Level"]], how = "left", on = "Month since Start").reset_index()#.fillna(0).reset_index()
         return SMF
 
 
@@ -74,9 +74,9 @@ class ALMLiability():
         return
     
     def insert(self, label, date, value_tg, value_lb, cvar_lim = 0.95):
-        self.date[label] = date
-        self.set = sorted(self.date.keys(), key = lambda x: self.date[x])
         date_dt = pd.to_datetime(date)
+        self.date[label] = date_dt
+        self.set = sorted(self.date.keys(), key = lambda x: self.date[x])
         start_dt = pd.to_datetime(self.start)
         self.period[label] = (date_dt.year - start_dt.year)*12 + date_dt.month - start_dt.month 
         self.value_tg[label] = value_tg
@@ -107,10 +107,10 @@ class ALMAssets():
         return
     
     def insert(self, label, date, value):
-        self.date[label] = date
+        date_dt = pd.to_datetime(date)
+        self.date[label] = date_dt
         self.set = sorted(self.date.keys(), key = lambda x: self.date[x])
         self.value[label] = value
-        date_dt = pd.to_datetime(date)
         start_dt = pd.to_datetime(self.start)
         self.period[label] = (date_dt.year - start_dt.year)*12 + date_dt.month - start_dt.month
         return
@@ -224,6 +224,15 @@ class ALMSolution():
 
 
 ## FUNCTIONS
+def add_recurrent(planner, start, end, type, label, value = 0, value_tg = 0, value_lb = 0):
+    recurrent_dates = pd.date_range(start = start, end = end, freq = pd.offsets.YearBegin(1))
+    for i in np.arange(len(recurrent_dates)):
+        index = str(int(i/10))+str(i-int(i/10)*10)
+        if type == "asset":
+            planner.assets.insert(label + "_" + index,recurrent_dates[i], value)
+        elif type == "goal":
+            planner.liabilities.insert(label + "_" + index,recurrent_dates[i], value_tg, value_lb)
+    return
 
 def load_scenario(path_scenario, scen_name):
     scen_path = os.path.join(path_scenario,scen_name)
