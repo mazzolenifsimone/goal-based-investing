@@ -165,6 +165,7 @@ def AssetSplitDetailsChart(planner, solution, groupby):
             Assets_split["ETF"][iter] = p
             Assets_split["Value"][iter] = solution.asset_to_exwealth[a][p]
     AssetGroupedBy = Assets_split[["Asset", groupby, "Value"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
+    print(AssetGroupedBy)
     ASDChart = px.bar(AssetGroupedBy, x="Asset", y = "Value", color = groupby)
     ASDChart = standardized_chart(ASDChart)
     return ASDChart
@@ -194,21 +195,24 @@ def GoalRiskDetails(planner, solution, perc):
     # Goal Avg and Worst when shortfall
     df = pd.DataFrame(index = planner.liabilities.set)
     df["goal"] = pd.Series(planner.liabilities.value_tg, index = planner.liabilities.set)
-    df["avg"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] < conf_tg[planner.liabilities.set])].mean(),0)
-    df["avg_shortfall"] = df["goal"] - df["avg"]
+    #df["avg"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] < conf_tg[planner.liabilities.set])].mean(),0)
+    df["avg"] = np.round(df_Q_ln[planner.liabilities.set].mean(),0)
     df["lower_bound"] = pd.Series(planner.liabilities.value_lb, index = planner.liabilities.set)
     df["worst"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] <= np.quantile(df_Q_ln[planner.liabilities.set],0.05,axis = 0))].mean(),0)
     if perc:
         df = np.divide(df.T, df["goal"], axis = 1).T
     GAWChart = go.Figure(
         data = [
-                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Goal",marker_line = dict(width = 1.5, color = "slategray")),
-                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name = "Average Value"),
-                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "slategray"), name = "LB Value"),
-                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="worst 5%", marker_color = "red")
+                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Goal", marker_line = dict(width = 1.5, color = "slategray"), hoverinfo = "skip"),  
+                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name ="Average Value", hoverinfo = "skip"),
+                go.Bar(x = df.index, y=df["worst"], marker_color = "red", name ="worst 5%", hoverinfo = "skip"),
+                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, name = "LB Value", marker_line = dict(width = 2, color = "slategray"), hoverinfo = "skip"),
+                go.Scatter(x = df.index, y=df["goal"], mode = "markers", name = "Goal", marker_color = "slategray", showlegend=False),
+                go.Scatter(x = df.index, y=df["lower_bound"], mode = "markers", name = "LB Value", marker_color = "slategray", showlegend=False),
+                go.Scatter(x = df.index, y=df["avg"], mode = "markers", name ="Average Value", marker_color = "limegreen", showlegend=False),
+                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="worst 5%", marker_color = "red", showlegend=False)
                 ],
         layout = go.Layout(barmode = "overlay")
             )
     GAWChart = standardized_chart(GAWChart, perc)
-
     return GSPChart, GAWChart
