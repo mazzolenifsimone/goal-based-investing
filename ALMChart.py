@@ -188,9 +188,13 @@ def GoalRiskDetails(planner, solution, perc):
     conf_lb = pd.DataFrame(planner.liabilities.value_lb, columns = planner.liabilities.set, index = N)
     df["Affordable"] = np.logical_and(df_Q_ln[planner.liabilities.set] < conf_tg, df_Q_ln[planner.liabilities.set] >= conf_lb).mean()
     df["Failure"] = (df_Q_ln[planner.liabilities.set] < conf_lb).mean()
-    df = df.reset_index().rename(columns = {"index":"Goals"})
-    dfchart = pd.melt(df, id_vars=["Goals"], value_vars = ["Affordable", "Failure"], var_name = "Shortfall Cathegory", value_name = "Shortfall Probabilities")
-    GSPChart = px.bar(dfchart, x="Goals", y = "Shortfall Probabilities", color = "Shortfall Cathegory",color_discrete_sequence=['royalblue', "crimson"])
+    GSPChart = go.Figure(
+        data = [
+                go.Bar(x = df.index, y=df["Affordable"], marker_color = "royalblue", name = "Affordable Shortfall"),#,marker_line = dict(width = 1.5, color = "slategray")),
+                go.Bar(x = df.index, y=df["Failure"], marker_color = "crimson", name = "Failure Shortfall"),
+                ],
+        layout = go.Layout(barmode = "stack")
+            )
     GSPChart = standardized_chart(GSPChart, perc = True)
     # Goal Avg and Worst when shortfall
     df = pd.DataFrame(index = planner.liabilities.set)
