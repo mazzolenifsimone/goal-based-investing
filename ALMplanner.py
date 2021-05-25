@@ -28,7 +28,7 @@ class ALMplanner:
         self.user_portfolio = buyandhold_portfolio[user_risk_profile]
         self.feasibility = -1
         self.liabilities = ALMLiability(self)
-        self.assets = ALMAssets(self)
+        self.assets = ALMAssets(self) 
         return
 
     def check_feasibility(self):
@@ -285,7 +285,7 @@ def add_portfolio_evolution_constr(model, planner, mod_liab = 0):
 
 def add_extrawealth_mgmt_constr(model, planner):
     for n in planner.N:
-        model.formulation += model.Q_end[n] == lp.lpSum(model.W_end[a][p]*np.exp(np.sum(planner.Scenario[p][n][planner.assets.period[a]:])) for a in planner.assets.set for p in planner.P) + lp.lpSum(model.Q_ex[l][n]*planner.user_portfolio[p]*np.exp(np.sum(planner.Scenario[p][n][planner.liabilities.period[l]:])) for l in planner.liabilities.set for p in planner.P)
+        model.formulation += model.Q_end[n] == lp.lpSum(model.W_end[a][p]*np.exp(np.sum(planner.Scenario[p][n][planner.assets.period[a]:len(planner.T)])) for a in planner.assets.set for p in planner.P) + lp.lpSum(model.Q_ex[l][n]*planner.user_portfolio[p]*np.exp(np.sum(planner.Scenario[p][n][planner.liabilities.period[l]:len(planner.T)])) for l in planner.liabilities.set for p in planner.P)
     return
 
 def add_GB_risk_constr(model, planner, mod_liab = 0):
