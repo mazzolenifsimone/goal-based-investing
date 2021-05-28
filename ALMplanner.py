@@ -5,17 +5,17 @@ import pickle as pkl
 import time
 import os
 
-buyandhold_portfolio = {
-    0:{"Cash":0.02, "GVT_EU13":0.39, "GVT_EU57":0.39, "EM":0.04, "EQ_EU":0.08, "EQ_US":0.08}, 
-    1:{"Cash":0, "GVT_EU13":0.25, "GVT_EU57":0.25, "EM":0.10, "EQ_EU":0.20, "EQ_US":0.20}, 
-    2:{"Cash":0, "GVT_EU13":0.10, "GVT_EU57":0.10, "EM":0.16, "EQ_EU":0.32, "EQ_US":0.32},
-}
+#buyandhold_portfolio = {
+#    0:{"Cash":0.02, "GVT_EU13":0.39, "GVT_EU57":0.39, "EM":0.04, "EQ_EU":0.08, "EQ_US":0.08}, 
+#    1:{"Cash":0, "GVT_EU13":0.25, "GVT_EU57":0.25, "EM":0.10, "EQ_EU":0.20, "EQ_US":0.20}, 
+#    2:{"Cash":0, "GVT_EU13":0.10, "GVT_EU57":0.10, "EM":0.16, "EQ_EU":0.32, "EQ_US":0.32},
+#}
 
 
 
 class ALMplanner:
 
-    def __init__(self, start = np.datetime64("2021-01-01"), end = np.datetime64("2070-12-31"), path_scenario = "scenario", scen_name = "Scenario", scen_df_name = "ETF_GBM", user_risk_profile = 1, buyandhold_portfolio = buyandhold_portfolio):
+    def __init__(self, start = np.datetime64("2021-01-01"), end = np.datetime64("2070-12-31"), path_scenario = "scenario", scen_name = "Scenario", scen_df_name = "ETF_GBM", user_risk_profile = 1, buyandhold_portfolios = "buyandhold_portfolios"):
         self.start = start
         self.end = end
         self.T = pd.date_range(start = start, end=end, freq = "M")
@@ -25,7 +25,8 @@ class ALMplanner:
         self.__DF_Scenario__ = load_scenario(path_scenario,scen_df_name)
         self.Scenario_mu = self.__DF_Scenario__[self.P].mean()
         self.Scenario_sigma = self.__DF_Scenario__[self.P].cov()
-        self.user_portfolio = buyandhold_portfolio[user_risk_profile]
+        buyandhold_portfolios = load_scenario(path_scenario,buyandhold_portfolios)
+        self.user_portfolio = buyandhold_portfolios[user_risk_profile]
         self.feasibility = -1
         self.liabilities = ALMLiability(self)
         self.assets = ALMAssets(self) 

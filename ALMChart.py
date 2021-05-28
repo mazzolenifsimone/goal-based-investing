@@ -145,11 +145,49 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False):
     AAChart = standardized_chart(AAChart)
     return AAChart
 
-def AssetSplitDetailsChart(planner, solution, groupby):
+def AssetSplitDetailsChart(planner, solution, groupby, colormap):
     P = planner.P
     A = planner.assets.set
     L = planner.liabilities.set
     Assets_split = pd.DataFrame(index = np.arange(len(P)*len(A)*(len(L)+1)), columns = ["Asset", "Goal", "ETF", "Value"])
+    it= -1
+    for a in A:
+        for p in P:
+            for l in L:
+                it = it+1
+                Assets_split["Asset"][it] = a
+                Assets_split["Goal"][it] = l
+                Assets_split["ETF"][it] = p
+                Assets_split["Value"][it] = solution.asset_to_goal[a][l][p]
+            it = it+1
+            Assets_split["Asset"][it] = a
+            Assets_split["Goal"][it] = "extra_wealth"
+            Assets_split["ETF"][it] = p
+            Assets_split["Value"][it] = solution.asset_to_exwealth[a][p]
+    AssetGroupedBy = Assets_split[["Asset", groupby, "Value"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
+    AssetPivot = AssetGroupedBy.pivot(index = "Asset", columns=groupby, values = "Value")
+    AssetPivot["Period"] = pd.Series(planner.assets.period)
+    AssetPivot = AssetPivot.sort_values(by = "Period")
+    data = []
+    if groupby == "Goal":
+        groupby_set = list(L)
+        groupby_set.append("extra_wealth")
+    elif groupby == "ETF":
+        groupby_set = P
+    else:
+        return
+    data = []
+    for e in groupby_set:
+        data.append(go.Bar(x = AssetPivot.index, y = AssetPivot[e], marker_color = colormap[e], name = e))
+    ASDChart = go.Figure(data = data, layout = go.Layout(barmode = "stack"))
+    ASDChart = standardized_chart(ASDChart)
+    return ASDChart
+
+def AssetSplitDetailsChart_old(planner, solution, groupby):
+    P = planner.P
+    A = planner.assets.set
+    L = planner.liabilities.set
+    Assets_split = pd.DataFrame(index = np.arange(len(P)*len(A)*(len(L)+1)), columns = ["Asset", "Goal", "ETF", "Value", "Period"])
     iter = -1
     for a in A:
         for p in P:
@@ -159,20 +197,23 @@ def AssetSplitDetailsChart(planner, solution, groupby):
                 Assets_split["Goal"][iter] = l
                 Assets_split["ETF"][iter] = p
                 Assets_split["Value"][iter] = solution.asset_to_goal[a][l][p]
+                Assets_split["Period"][iter] = planner.liabilities.period[l]
             iter = iter+1
             Assets_split["Asset"][iter] = a
             Assets_split["Goal"][iter] = "extra_wealth"
             Assets_split["ETF"][iter] = p
             Assets_split["Value"][iter] = solution.asset_to_exwealth[a][p]
-    AssetGroupedBy = Assets_split[["Asset", groupby, "Value"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
+            Assets_split["Period"][iter] = len(planner.T) - 1
+    AssetGroupedBy = Assets_split[["Asset", groupby, "Value", "Period"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
     print(AssetGroupedBy)
-    ASDChart = px.bar(AssetGroupedBy, x="Asset", y = "Value", color = groupby)
+    ASDChart = px.bar(AssetGroupedBy, x="Asset", y = "Value", color = "Period", color_continuous_scale="tealgrn")
     ASDChart = standardized_chart(ASDChart)
     return ASDChart
 
 def GoalRiskDetails(planner, solution, perc):
     L = planner.liabilities.set
     N = planner.N
+    # Compute DF structure from solution
     Q_ln = {}
     for l in L:
         Q_ln[l] = np.zeros(shape = (len(N)))
@@ -184,8 +225,10 @@ def GoalRiskDetails(planner, solution, perc):
     df_Q_ln = pd.DataFrame(Q_ln)
     # Goal Shortfall Prob Chart
     df = pd.DataFrame(index = planner.liabilities.set)
+    #  - DF for matrix comparison
     conf_tg = pd.DataFrame(planner.liabilities.value_tg, columns = planner.liabilities.set, index = N)
     conf_lb = pd.DataFrame(planner.liabilities.value_lb, columns = planner.liabilities.set, index = N)
+    #  - Affordable Shortfall and Failure Shortfall Probabilities by goals
     df["Affordable"] = np.logical_and(df_Q_ln[planner.liabilities.set] < conf_tg, df_Q_ln[planner.liabilities.set] >= conf_lb).mean()
     df["Failure"] = (df_Q_ln[planner.liabilities.set] < conf_lb).mean()
     GSPChart = go.Figure(
@@ -198,10 +241,14 @@ def GoalRiskDetails(planner, solution, perc):
     GSPChart = standardized_chart(GSPChart, perc = True)
     # Goal Avg and Worst when shortfall
     df = pd.DataFrame(index = planner.liabilities.set)
+    #  - Goal value 
     df["goal"] = pd.Series(planner.liabilities.value_tg, index = planner.liabilities.set)
-    #df["avg"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] < conf_tg[planner.liabilities.set])].mean(),0)
+    #  - Average wealth obtained (or # Average wealth obtained in case of shortfall)
     df["avg"] = np.round(df_Q_ln[planner.liabilities.set].mean(),0)
+    #df["avg"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] < conf_tg[planner.liabilities.set])].mean(),0)
+    #  - Goal lower bound
     df["lower_bound"] = pd.Series(planner.liabilities.value_lb, index = planner.liabilities.set)
+    #  - Average worst 5% wealth obtained
     df["worst"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] <= np.quantile(df_Q_ln[planner.liabilities.set],0.05,axis = 0))].mean(),0)
     if perc:
         df = np.divide(df.T, df["goal"], axis = 1).T
@@ -220,3 +267,29 @@ def GoalRiskDetails(planner, solution, perc):
             )
     GAWChart = standardized_chart(GAWChart, perc)
     return GSPChart, GAWChart
+
+def EoPWealthInfo(planner, solution):
+    L = planner.liabilities.set
+    N = planner.N
+    # Compute DF structure from solution
+    Q_ln = {}
+    for l in L:
+        Q_ln[l] = np.zeros(shape = (len(N)))
+        for n in N:
+            Q_ln[l][n] = solution.goal_distr[l][n]
+    Q_ln["ex_wealth"] = np.zeros(shape = (len(N)))
+    for n in N:
+        Q_ln["ex_wealth"][n]=solution.final_exwealth[n]
+    df_Q_ln = pd.DataFrame(Q_ln)
+    conf_lb = pd.DataFrame(planner.liabilities.value_lb, columns = planner.liabilities.set, index = N)
+    # Success\Failure probability (if a goal fails, plan fails)
+    fail_prob = np.round(np.any((df_Q_ln[planner.liabilities.set] < conf_lb), axis = 1).mean()*100, 1)
+    success_prob = 100 - fail_prob
+    # Wealth Statistics
+    tot_wealth_avg = np.round(np.mean(np.sum(df_Q_ln, axis = 1)),0)
+    paid_advance_avg = np.round(np.mean(np.sum(df_Q_ln[L], axis = 1)),0)
+    #extra_wealth_avg = np.round(np.mean(df_Q_ln["ex_wealth"]),0)
+    fail_loss = np.minimum(df_Q_ln[planner.liabilities.set]-conf_lb,0)
+    loss_in_failure = fail_loss.sum(axis = 1)
+    avg_loss_in_failure = loss_in_failure[loss_in_failure < 0].mean()
+    return success_prob, fail_prob, tot_wealth_avg, paid_advance_avg, avg_loss_in_failure
