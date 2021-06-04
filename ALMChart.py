@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 def standardized_chart(plt, perc = False):
     plt.update_layout(
         paper_bgcolor = "white",
-        showlegend=True,
+        showlegend=False,
         plot_bgcolor="white",
         margin=dict(t=20,l=20,b=20,r=20))
     plt.update_xaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
@@ -69,12 +69,12 @@ def display(planner, bar_width=6):
         fig.show()
         return
 
-def AssetAllocationChart(planner, solution, n_scen=None, perc = False, user_portfolio = None):
+def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None):
     P = planner.P
     L = planner.liabilities.set
     T = planner.T
-    if user_portfolio is None:
-        user_portfolio = planner.user_portfolio
+    if portfolio_strategy is None:
+        portfolio_strategy = planner.user_portfolio
     Q_nscen = np.zeros(shape = (len(P),len(L)))
     Val_tl = {}
     index = -1
@@ -119,7 +119,7 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False, user_port
 
             new_asset_label = period_value_df.loc[period_value_df.Period == t , "Label" ].values
             new_asset = [solution.asset_to_exwealth[a][p] for a in new_asset_label]
-            ex_wealth_p = ex_wealth*user_portfolio[p]
+            ex_wealth_p = ex_wealth*portfolio_strategy[p]
             if t==0:
                 Val_end_t[p][t] = sum(new_asset)*cap_factor
             else:
@@ -147,20 +147,12 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False, user_port
     AAChart = standardized_chart(AAChart)
     return AAChart
 
-def AssetSplitDetailsChart(planner, solution, groupby, colormap, user_portfolio = None):
+def AssetSplitDetailsChart(planner, solution, groupby, colormap):
     P = planner.P
     A = planner.assets.set
     L = planner.liabilities.set
     Assets_split = pd.DataFrame(index = np.arange(len(P)*len(A)*(len(L)+1)), columns = ["Asset", "Goal", "ETF", "Value"])
     it= -1
-    # user_portfolio can be freely changed (no impact on GoalBased portfolio)
-    asset_to_exwealth = {}
-    for a in A:
-        asset_to_exwealth[a]
-        for p in P:
-            asset_to_exwealth[a] = asset_to_exwealth[a] + solution.asset_to_exwealth[a][p]
-    if user_portfolio is None:
-        user_portfolio = planner.user_portfolio
     for a in A:
         for p in P:
             for l in L:
@@ -173,7 +165,7 @@ def AssetSplitDetailsChart(planner, solution, groupby, colormap, user_portfolio 
             Assets_split["Asset"][it] = a
             Assets_split["Goal"][it] = "extra_wealth"
             Assets_split["ETF"][it] = p
-            Assets_split["Value"][it] = asset_to_exwealth[a]*user_portfolio[p]
+            Assets_split["Value"][it] = solution.asset_to_exwealth[a][p]
 
     AssetGroupedBy = Assets_split[["Asset", groupby, "Value"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
     AssetPivot = AssetGroupedBy.pivot(index = "Asset", columns=groupby, values = "Value")

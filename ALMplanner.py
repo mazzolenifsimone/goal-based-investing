@@ -228,7 +228,9 @@ class ALMBuyAndHold_2():
         return
 
     def solve(self, portfolio_strategy = None):
-        model_solve_BaH(self, portfolio_strategy = portfolio_strategy)     
+        tic = time.time()
+        model_solve_BaH(self, self.planner, portfolio_strategy = portfolio_strategy)
+        print(f"Solve ended in {np.round(time.time()-tic,2)} s with")
         return
 
 
@@ -245,6 +247,22 @@ class ALMSolution():
         self.goal_exwealth = {}
         self.final_exwealth = {}
         return
+    
+    def update_end(self, planner, portfolio_strategy):
+        tic = time.time()
+        if not(self.status == 1):
+            print("ERROR: solution not updatable.")
+        else:
+            total_assets_to_exwealth = {}
+            for a in planner.assets.set:
+                total_assets_to_exwealth[a] = 0
+                for p in planner.P:
+                    total_assets_to_exwealth[a] = total_assets_to_exwealth[a] + self.asset_to_exwealth[a][p]
+            self.asset_to_exwealth = get_W_end(planner, total_assets_to_exwealth, portfolio_strategy)
+            self.final_exwealth = get_Q_end(planner, self.asset_to_exwealth, self.goal_exwealth, portfolio_strategy)
+            print(f"Solution updated in {np.round(time.time()-tic,2)} s")
+        return
+    
 
 
 
@@ -348,58 +366,82 @@ def smart_asset_allocation(planner):
     asset_end = Assets - asset_split.T.sum()
     return asset_split, asset_end
 
-def model_solve_BaH(BaH_model, portfolio_strategy):
+def model_solve_BaH(model, planner, portfolio_strategy):
     if portfolio_strategy is None:
-        portfolio_strategy = BaH_model.planner.user_portfolio
-    Asset_al_split, Asset_aend_split = smart_asset_allocation(BaH_model.planner)
-    W, W_end = get_BaH_W(BaH_model, Asset_al_split, Asset_aend_split, portfolio_strategy)
-    Q, Q_ex, Q_end =  get_Q(BaH_model, BaH_model.planner, W, W_end, portfolio_strategy)
-    ###################################################################
-
-    ###### Aggiungere oggetto solution con i valori standardizzati
-
-    ###################################################################
+        portfolio_strategy = planner.user_portfolio
+    Asset_al_split, Asset_aend_split = smart_asset_allocation(planner)
+    W = get_BaH_W(planner, Asset_al_split, portfolio_strategy)
+    W_end = get_W_end(planner, Asset_aend_split, portfolio_strategy)
+    Q, Q_ex =  get_Q(planner, W)
+    Q_end = get_Q_end(planner, W_end, Q_ex, portfolio_strategy)
+    # Save solution
+    model.solution = ALMSolution(2)
+    for a in model.A:
+        model.solution.asset_to_goal[a] = {}
+        for l in model.L:
+            model.solution.asset_to_goal[a][l] = {}
+            for p in model.P:
+                model.solution.asset_to_goal[a][l][p] = W[a][l][p]
+    for a in model.A:
+        model.solution.asset_to_exwealth[a]={}
+        for p in model.P:
+            model.solution.asset_to_exwealth[a][p] = W_end[a][p]
+    for l in model.L:
+        model.solution.goal_distr[l] = {}
+        model.solution.goal_exwealth[l] = {}
+        for n in model.N:
+            model.solution.goal_distr[l][n] = Q[l][n]
+            model.solution.goal_exwealth[l][n] = Q_ex[l][n]
+    for n in model.N:
+        model.solution.final_exwealth[n] = Q_end[n]
     return
 
-def get_BaH_W(model, Asset_al_split, Asset_aend_split, portfolio_strategy):
+def get_BaH_W(planner, Asset_al_split, portfolio_strategy):
     W = {}
-    W_end = {}
-    for a in model.A:
+    for a in planner.assets.set:
         W[a] = {}
-        W_end[a] = {}
-        for l in model.L:
+        for l in planner.liabilities.set:
             W[a][l] = {}
-            for p in model.P:
+            for p in planner.P:
                 W[a][l][p] = Asset_al_split[l][a]*portfolio_strategy[p]
-        for p in model.P:
-            W_end[a][p] = Asset_aend_split[a]*portfolio_strategy[p]
-    return W, W_end
+    return W
 
-def get_Q(model, planner, W, W_end, portfolio_strategy):
+def get_W_end(planner, Asset_aend_split, portfolio_strategy):
+    W_end = {}
+    for a in planner.assets.set:
+        W_end[a] = {}
+        for p in planner.P:
+            W_end[a][p] = Asset_aend_split[a]*portfolio_strategy[p]
+    return W_end
+
+def get_Q(planner, W):
     Q = {}
     Q_ex = {}
-    Q_end = {}
-    for l in model.L:
+    for l in planner.liabilities.set:
         Q[l] = {}
         Q_ex[l] = {}
-        for n in model.N:
+        for n in planner.N:
             proj_assets = 0
-            for a in model.A:
-                for p in model.P:
+            for a in planner.assets.set:
+                for p in planner.P:
                     proj_assets = proj_assets + W[a][l][p]*np.exp(np.sum(planner.Scenario[p][n][planner.assets.period[a]:planner.liabilities.period[l]]))
             Q_ex[l][n] = max(proj_assets - planner.liabilities.value_tg[l], 0)
-            Q[l][n] == proj_assets - Q_ex[l][n]
-    for n in model.N:
+            Q[l][n] = proj_assets - Q_ex[l][n]
+    return Q, Q_ex
+
+def get_Q_end(planner, W_end, Q_ex, portfolio_strategy):
+    Q_end = {}
+    for n in planner.N:
         extra_wealth_l = 0
-        for l in model.L:
-            for p in model.P:
+        for l in planner.liabilities.set:
+            for p in planner.P:
                 extra_wealth_l = extra_wealth_l + Q_ex[l][n]*portfolio_strategy[p]*np.exp(np.sum(planner.Scenario[p][n][planner.liabilities.period[l]:len(planner.T)]))
         extra_wealth_a = 0
-        for a in model.A:
-            for p in model.P:
+        for a in planner.assets.set:
+            for p in planner.P:
                 extra_wealth_a = extra_wealth_a + W_end[a][p]*np.exp(np.sum(planner.Scenario[p][n][planner.assets.period[a]:len(planner.T)]))
-        Q_end[n] = extra_wealth_l + extra_wealth_a 
-    return Q, Q_ex, Q_end
+        Q_end[n] = extra_wealth_l + extra_wealth_a
+    return Q_end
 
 def model_solve(model):
     tic = time.time()
