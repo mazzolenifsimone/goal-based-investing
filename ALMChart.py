@@ -4,10 +4,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def standardized_chart(plt, perc = False):
+def standardized_chart(plt, perc = False, showlegend = False):
     plt.update_layout(
         paper_bgcolor = "white",
-        showlegend=False,
+        showlegend=showlegend,
         plot_bgcolor="white",
         margin=dict(t=20,l=20,b=20,r=20))
     plt.update_xaxes(showgrid=True, gridwidth=1, gridcolor='darkgray')
@@ -16,6 +16,13 @@ def standardized_chart(plt, perc = False):
     plt.update_yaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
     if perc:
         plt.update_yaxes(range=[0, 1])
+    plt.update_layout(legend=dict(
+    orientation="h",
+    yanchor="bottom",
+    y=1.02,
+    xanchor="right",
+    x=1
+))
     return plt
 
 def display(planner, bar_width=6):
@@ -55,7 +62,7 @@ def display(planner, bar_width=6):
             go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "Assets",marker_line = dict(width = 1.5, color = "steelblue")),
             go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "Goals",marker_line = dict(width = 1.5, color = "dimgray")),
             go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "Goal LB"),
-            go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "Neutral wealth consumption")
+            go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "Wealth consumption")
             ],
             layout = go.Layout(barmode = "overlay")
         )
@@ -69,7 +76,7 @@ def display(planner, bar_width=6):
         fig.show()
         return
 
-def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None):
+def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None, showlegend=True):
     P = planner.P
     L = planner.liabilities.set
     T = planner.T
@@ -137,14 +144,16 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio
     if perc:
         AAN_perc = AAN_perc.reset_index()
         AAN_perc = AAN_perc.melt(id_vars=['index'], var_name='P', value_name='evo')
-        AAChart = px.area(AAN_perc, x="index", y = "evo", color = "P" )
+        AAChart = px.area(AAN_perc, x="index", y = "evo", color = "P")
         AAChart.update_xaxes(range=[AAN_perc["index"].min(), AAN_perc["index"].max()])
         AAChart.update_yaxes(range=[0, 1])
     else:
         AssetAllocationNominal = AssetAllocationNominal.reset_index()
         AssetAllocationNominal = AssetAllocationNominal.melt(id_vars=['index'], var_name='P', value_name='evo')
         AAChart = px.area(AssetAllocationNominal, x="index", y = "evo", color = "P")
-    AAChart = standardized_chart(AAChart)
+    AAChart = standardized_chart(AAChart, perc = perc, showlegend = showlegend)
+    for i in np.arange(len(AAChart.data)):
+        AAChart.data[i]["showlegend"] = showlegend
     return AAChart
 
 def AssetSplitDetailsChart(planner, solution, groupby, colormap):
@@ -213,7 +222,7 @@ def AssetSplitDetailsChart_old(planner, solution, groupby):
     ASDChart = standardized_chart(ASDChart)
     return ASDChart
 
-def GoalRiskDetails(planner, solution, perc):
+def GoalRiskDetails(planner, solution, perc, showlegend = True):
     L = planner.liabilities.set
     N = planner.N
     # Compute DF structure from solution
@@ -236,12 +245,12 @@ def GoalRiskDetails(planner, solution, perc):
     df["Failure"] = (df_Q_ln[planner.liabilities.set] < conf_lb).mean()
     GSPChart = go.Figure(
         data = [
-                go.Bar(x = df.index, y=df["Affordable"], marker_color = "royalblue", name = "Affordable Shortfall"),#,marker_line = dict(width = 1.5, color = "slategray")),
-                go.Bar(x = df.index, y=df["Failure"], marker_color = "crimson", name = "Failure Shortfall"),
+                go.Bar(x = df.index, y=df["Affordable"], marker_color = "royalblue", name = "Affordable Shortfall", showlegend = showlegend, legendgroup = "1"),#,marker_line = dict(width = 1.5, color = "slategray")),
+                go.Bar(x = df.index, y=df["Failure"], marker_color = "crimson", name = "Failure Shortfall", showlegend = showlegend, legendgroup = "2"),
                 ],
         layout = go.Layout(barmode = "stack")
             )
-    GSPChart = standardized_chart(GSPChart, perc = True)
+    GSPChart = standardized_chart(GSPChart, perc = True, showlegend=showlegend)
     # Goal Avg and Worst when shortfall
     df = pd.DataFrame(index = planner.liabilities.set)
     #  - Goal value 
@@ -257,18 +266,18 @@ def GoalRiskDetails(planner, solution, perc):
         df = np.divide(df.T, df["goal"], axis = 1).T
     GAWChart = go.Figure(
         data = [
-                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Goal", marker_line = dict(width = 1.5, color = "slategray"), hoverinfo = "skip"),  
-                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name ="Average Value", hoverinfo = "skip"),
-                go.Bar(x = df.index, y=df["worst"], marker_color = "red", name ="worst 5%", hoverinfo = "skip"),
-                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, name = "LB Value", marker_line = dict(width = 2, color = "slategray"), hoverinfo = "skip"),
-                go.Scatter(x = df.index, y=df["goal"], mode = "markers", name = "Goal", marker_color = "slategray", showlegend=False),
-                go.Scatter(x = df.index, y=df["lower_bound"], mode = "markers", name = "LB Value", marker_color = "slategray", showlegend=False),
-                go.Scatter(x = df.index, y=df["avg"], mode = "markers", name ="Average Value", marker_color = "limegreen", showlegend=False),
-                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="worst 5%", marker_color = "red", showlegend=False)
+                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Goal", marker_line = dict(width = 1.5, color = "slategray"), hoverinfo = "skip", showlegend = showlegend, legendgroup = "1"),  
+                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name ="Average Value", hoverinfo = "skip",legendgroup = "2",showlegend=showlegend),
+                go.Bar(x = df.index, y=df["worst"], marker_color = "red", name ="worst 5%", hoverinfo = "skip",legendgroup = "3",showlegend=showlegend),
+                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, name = "LB Value", marker_line = dict(width = 2, color = "slategray"), hoverinfo = "skip",legendgroup = "1", showlegend=showlegend),
+                go.Scatter(x = df.index, y=df["goal"], mode = "markers", name = "Goal", marker_color = "slategray", showlegend=False,legendgroup = "1"),
+                go.Scatter(x = df.index, y=df["lower_bound"], mode = "markers", name = "LB Value", marker_color = "slategray", showlegend=False, legendgroup = "1"),
+                go.Scatter(x = df.index, y=df["avg"], mode = "markers", name ="Average Value", marker_color = "limegreen", showlegend=False,legendgroup = "2"),
+                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="worst 5%", marker_color = "red", showlegend=False,legendgroup = "3")
                 ],
         layout = go.Layout(barmode = "overlay")
             )
-    GAWChart = standardized_chart(GAWChart, perc)
+    GAWChart = standardized_chart(GAWChart, perc = perc, showlegend = showlegend)
     return GSPChart, GAWChart
 
 def EoPWealthInfo(planner, solution):
