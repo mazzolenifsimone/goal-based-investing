@@ -16,6 +16,8 @@ def standardized_chart(plt, perc = False, showlegend = False):
     plt.update_yaxes(showline=True, linewidth=1.3, linecolor='black', mirror = True)
     if perc:
         plt.update_yaxes(range=[0, 1])
+    else:
+        plt.update_yaxes(autorange = True)
     plt.update_layout(legend=dict(
     orientation="h",
     yanchor="bottom",

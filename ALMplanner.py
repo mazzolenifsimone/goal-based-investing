@@ -15,7 +15,7 @@ import os
 
 class ALMplanner:
 
-    def __init__(self, start = np.datetime64("2021-01-01"), end = np.datetime64("2070-12-31"), path_scenario = "scenario", scen_name = "Scenario", scen_df_name = "ETF_GBM", user_risk_profile = 1, buyandhold_portfolios = "buyandhold_portfolios"):
+    def __init__(self, start = np.datetime64("2021-01-01"), end = np.datetime64("2070-12-31"), path_scenario = "scenario", scen_name = "Scenario", scen_df_name = "ETF_GBM", user_risk_profile = 0, buyandhold_portfolios = "eff_front"):
         self.start = start
         self.end = end
         self.T = pd.date_range(start = start, end=end, freq = "M")
@@ -27,6 +27,7 @@ class ALMplanner:
         self.Scenario_sigma = self.__DF_Scenario__[self.P].cov()
         buyandhold_portfolios = load_scenario(path_scenario,buyandhold_portfolios)
         self.user_portfolio = buyandhold_portfolios[user_risk_profile]
+        self.user_risk_profile = user_risk_profile
         self.feasibility = -1
         self.liabilities = ALMLiability(self)
         self.assets = ALMAssets(self) 
