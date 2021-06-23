@@ -75,8 +75,7 @@ def display(planner, bar_width=6):
         margin = -lowerlimit*0.25
         fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
         fig.update_layout(showlegend=False)
-        fig.show()
-        return
+        return fig
 
 def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None, showlegend=True):
     P = planner.P
@@ -193,7 +192,7 @@ def AssetSplitDetailsChart(planner, solution, groupby, colormap):
     data = []
     for e in groupby_set:
         data.append(go.Bar(x = AssetPivot.index, y = AssetPivot[e], marker_color = colormap[e], name = e))
-    ASDChart = go.Figure(data = data, layout = go.Layout(barmode = "stack"))
+    ASDChart = go.FigureWidget(data = data, layout = go.Layout(barmode = "stack"))
     ASDChart = standardized_chart(ASDChart)
     return ASDChart
 
