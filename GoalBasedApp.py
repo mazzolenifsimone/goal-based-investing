@@ -73,7 +73,7 @@ solution = html.Div([
             ])
 
 app.layout = html.Div([
-    dcc.Tabs(id='app', value='app', children=[
+    dcc.Tabs(id='tab_app', value='tab_app', children=[
         dcc.Tab(label='Wealth Planner', 
                 value='planner', 
                 children = html.Div([
