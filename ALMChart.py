@@ -18,16 +18,16 @@ def standardized_chart(plt, perc = False, showlegend = False):
         plt.update_yaxes(range=[0, 1])
     else:
         plt.update_yaxes(autorange = True)
-    plt.update_layout(legend=dict(
-    orientation="h",
-    yanchor="bottom",
-    y=1.02,
-    xanchor="right",
-    x=1
-))
+    #plt.update_layout(legend=dict(
+    #orientation="h",
+    #yanchor="bottom",
+    #y=1.02,
+    #xanchor="right",
+    #x=1)
+    # )
     return plt
 
-def display(planner, bar_width=6):
+def planner_chart(planner, bar_width=6):
         ETF_GBM = planner.__DF_Scenario__
 
         portfolio = pd.Series(planner.user_portfolio.values(),index = planner.user_portfolio.keys())
@@ -58,13 +58,13 @@ def display(planner, bar_width=6):
         low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
         
         fig = go.Figure(data = [
+            go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "Invested asset",marker_line = dict(width = 1.5, color = "steelblue")),
+            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "Optimal goal",marker_line = dict(width = 1.5, color = "dimgray")),
+            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "Minimum goal"),
+            go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "Wealth consumption"),
             go.Scatter(x = SMF["Month since Start"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="95% quantile"),
             go.Scatter(x = SMF["Month since Start"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "5% quantile"),
             go.Scatter(x = SMF["Month since Start"], y=med_capitalized_value, mode = "lines", line_color = "blue", name = "50% quantile"),
-            go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "Assets",marker_line = dict(width = 1.5, color = "steelblue")),
-            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "Goals",marker_line = dict(width = 1.5, color = "dimgray")),
-            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "Goal LB"),
-            go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "Wealth consumption")
             ],
             layout = go.Layout(barmode = "overlay")
         )
@@ -74,7 +74,13 @@ def display(planner, bar_width=6):
         upperlimit = max(med_capitalized_value)
         margin = -lowerlimit*0.25
         fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
-        fig.update_layout(showlegend=False)
+        fig.update_layout(   title={
+        'text': "Wealth Planner",
+        'xanchor': 'center',
+        'yanchor': 'top'},
+                            showlegend=True,
+                            legend_traceorder="normal"
+                        )
         return fig
 
 def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None, showlegend=True):
@@ -193,33 +199,6 @@ def AssetSplitDetailsChart(planner, solution, groupby, colormap):
     for e in groupby_set:
         data.append(go.Bar(x = AssetPivot.index, y = AssetPivot[e], marker_color = colormap[e], name = e))
     ASDChart = go.FigureWidget(data = data, layout = go.Layout(barmode = "stack"))
-    ASDChart = standardized_chart(ASDChart)
-    return ASDChart
-
-def AssetSplitDetailsChart_old(planner, solution, groupby):
-    P = planner.P
-    A = planner.assets.set
-    L = planner.liabilities.set
-    Assets_split = pd.DataFrame(index = np.arange(len(P)*len(A)*(len(L)+1)), columns = ["Asset", "Goal", "ETF", "Value", "Period"])
-    iter = -1
-    for a in A:
-        for p in P:
-            for l in L:
-                iter = iter+1
-                Assets_split["Asset"][iter] = a
-                Assets_split["Goal"][iter] = l
-                Assets_split["ETF"][iter] = p
-                Assets_split["Value"][iter] = solution.asset_to_goal[a][l][p]
-                Assets_split["Period"][iter] = planner.liabilities.period[l]
-            iter = iter+1
-            Assets_split["Asset"][iter] = a
-            Assets_split["Goal"][iter] = "extra_wealth"
-            Assets_split["ETF"][iter] = p
-            Assets_split["Value"][iter] = solution.asset_to_exwealth[a][p]
-            Assets_split["Period"][iter] = len(planner.T) - 1
-    AssetGroupedBy = Assets_split[["Asset", groupby, "Value", "Period"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
-    print(AssetGroupedBy)
-    ASDChart = px.bar(AssetGroupedBy, x="Asset", y = "Value", color = "Period", color_continuous_scale="tealgrn")
     ASDChart = standardized_chart(ASDChart)
     return ASDChart
 

@@ -35,13 +35,13 @@ problem.liabilities.insert("university", "2029", 50000, 50000*0.95)
 problem.liabilities.insert("hawaii", "2037",25000, 25000*0.85) 
 problem.assets.insert("init","Jan 2021",30000)
 ALM.add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
-planner_chart = go.FigureWidget(ALMc.display(problem, bar_width=6))
-
+problem_chart = go.FigureWidget(ALMc.planner_chart(problem, bar_width=6))
+ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
 example_options = [("20y-feasible-3-goals",1), ("20y-unfeasible-3-goals",4),("40y-feasible-pensionfund",2),("20y-feasible-singlegoal",3)]
 urp_options = [("low risk",0), ("low-mid risk",1),("mid risk",2),("mid-high risk",3),("high risk",4)]
 
 @interact_manual(example_select = widgets.Dropdown(options = example_options, value = 1, style = {'description': 'Select example:'}), user_risk_profile = widgets.Dropdown(options = urp_options, value = 0, style = {'description': 'User risk profile:'}))
-def planner(example_select, user_risk_profile):
+def planner_demo(example_select, user_risk_profile):
     global problem
     if example_select == 1:
         problem = ALM.ALMplanner(start = "2021", end = "2041", user_risk_profile = user_portfolio_code[user_risk_profile])
@@ -65,16 +65,16 @@ def planner(example_select, user_risk_profile):
         problem.liabilities.insert("hawaii", "2037",30000, 30000*0.85) 
         problem.assets.insert("init","Jan 2021",30000)
         ALM.add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
-    new_plan = go.FigureWidget(ALMc.display(problem, bar_width=6))
-    with planner_chart.batch_update():
-        n_index = int(len(planner_chart.data))
+    new_plan = go.FigureWidget(ALMc.planner_chart(problem, bar_width=6))
+    with problem_chart.batch_update():
+        n_index = int(len(problem_chart.data))
         for i in np.arange(n_index):
-            planner_chart.data[i].y = new_plan.data[i].y
-            planner_chart.data[i].x = new_plan.data[i].x
-        ALMc.standardized_chart(planner_chart, perc = False, showlegend= True)
+            problem_chart.data[i].y = new_plan.data[i].y
+            problem_chart.data[i].x = new_plan.data[i].x
+        ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
     return
 
-display(planner_chart)
+display(problem_chart)
 # %% 
 # Feasibility check and Assets-multiplier to get feasibility
 
