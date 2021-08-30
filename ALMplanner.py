@@ -5,14 +5,6 @@ import pickle as pkl
 import time
 import os
 
-#buyandhold_portfolio = {
-#    0:{"Cash":0.02, "GVT_EU13":0.39, "GVT_EU57":0.39, "EM":0.04, "EQ_EU":0.08, "EQ_US":0.08}, 
-#    1:{"Cash":0, "GVT_EU13":0.25, "GVT_EU57":0.25, "EM":0.10, "EQ_EU":0.20, "EQ_US":0.20}, 
-#    2:{"Cash":0, "GVT_EU13":0.10, "GVT_EU57":0.10, "EM":0.16, "EQ_EU":0.32, "EQ_US":0.32},
-#}
-
-
-
 class ALMplanner:
 
     def __init__(self, start = np.datetime64("2021-01-01"), end = np.datetime64("2070-12-31"), path_scenario = "scenario", scen_name = "Scenario", scen_df_name = "ETF_GBM", user_risk_profile = 0, buyandhold_portfolios = "eff_front"):
@@ -31,7 +23,7 @@ class ALMplanner:
         self.feasibility = -1
         self.liabilities = ALMLiability(self)
         self.assets = ALMAssets(self) 
-        return
+        
 
     def check_feasibility(self):
         tic = time.time()
@@ -45,7 +37,7 @@ class ALMplanner:
         else:
             self.feasibility = 1
             print(f"Feasible problem")
-        return
+        
 
     def get_feasibility(self):
         if self.feasibility > -1:
@@ -53,7 +45,7 @@ class ALMplanner:
                 self.assets.value[label] = self.assets.value[label]*(1+self.feasibility_coeff)
         else:
             print("ERROR: No feasiblity information")
-        return
+        
     
     def StandardModelForm(self):
         Assets = self.assets.lists()
@@ -73,7 +65,7 @@ class ALMLiability():
         self.period = {}
         self.date = {}
         self.start = planner.start
-        return
+        
     
     def insert(self, label, date, value_tg, value_lb, cvar_lim = 0.95):
         date_dt = pd.to_datetime(date)
@@ -84,7 +76,7 @@ class ALMLiability():
         self.value_tg[label] = value_tg
         self.value_lb[label] = value_lb
         self.cvar_lim[label] = cvar_lim
-        return
+        
 
     def lists(self):
         ListOfLiabilities = pd.DataFrame(index=self.set, columns = ["Date", "Month since Start", "Goal Value", "Goal Lower Bound", "CVaR Level"])
@@ -106,7 +98,7 @@ class ALMAssets():
         self.date = {}
         self.period = {}
         self.start = planner.start
-        return
+        
     
     def insert(self, label, date, value):
         date_dt = pd.to_datetime(date)
@@ -115,7 +107,7 @@ class ALMAssets():
         self.value[label] = value
         start_dt = pd.to_datetime(self.start)
         self.period[label] = (date_dt.year - start_dt.year)*12 + date_dt.month - start_dt.month
-        return
+        
 
     def lists(self):
         ListOfAsset = pd.DataFrame(index=self.set, columns = ["Date", "Month since Start", "Asset Value"])
@@ -150,7 +142,6 @@ class ALMCheckFeasibility():
         # - TEMP: fix liab
         self.formulation += self.mod_liab == 0
         #########################
-        return
 
 
 
@@ -179,11 +170,9 @@ class ALMGoalBased():
         add_GB_risk_constr(self, planner)
         #########################
         print(f"GoalBased model generated in {np.round(time.time()-tic,2)} s")
-        return
     
     def solve(self):
-        model_solve(self)     
-        return
+        model_solve(self)
 
 
 
@@ -209,12 +198,10 @@ class ALMBuyAndHold():
         # - Extra wealth management constraints
         add_extrawealth_mgmt_constr(self, planner)
         #########################
-        print(f"BuyAndHold model generated in {np.round(time.time()-tic,2)} s")   
-        return
+        print(f"BuyAndHold model generated in {np.round(time.time()-tic,2)} s")
 
     def solve(self):
-        model_solve(self)     
-        return
+        model_solve(self)
 
 
 
@@ -226,13 +213,11 @@ class ALMBuyAndHold_2():
         self.L = planner.liabilities.set
         self.N = planner.N
         self.planner = planner
-        return
 
     def solve(self, portfolio_strategy = None):
         tic = time.time()
         model_solve_BaH(self, self.planner, portfolio_strategy = portfolio_strategy)
         print(f"Solve ended in {np.round(time.time()-tic,2)} s with")
-        return
 
 
 
@@ -247,7 +232,6 @@ class ALMSolution():
         self.asset_to_exwealth = {}
         self.goal_exwealth = {}
         self.final_exwealth = {}
-        return
     
     def update_end(self, planner, portfolio_strategy):
         tic = time.time()
@@ -262,7 +246,6 @@ class ALMSolution():
             self.asset_to_exwealth = get_W_end(planner, total_assets_to_exwealth, portfolio_strategy)
             self.final_exwealth = get_Q_end(planner, self.asset_to_exwealth, self.goal_exwealth, portfolio_strategy)
             print(f"Solution updated in {np.round(time.time()-tic,2)} s")
-        return
     
 
 
@@ -276,7 +259,6 @@ def add_recurrent(planner, start, end, type, label, value = 0, value_tg = 0, val
             planner.assets.insert(label + "_" + index,recurrent_dates[i], value)
         elif type == "goal":
             planner.liabilities.insert(label + "_" + index,recurrent_dates[i], value_tg, value_lb)
-    return
 
 def load_scenario(path_scenario, scen_name):
     scen_path = os.path.join(path_scenario,scen_name)
@@ -296,7 +278,6 @@ def set_variables(model, planner):
 
 def add_objective_function(model, planner):
     model.formulation += lp.lpSum(model.Q[l][n] for l in planner.liabilities.set for n in planner.N)/len(planner.N) + lp.lpSum(model.W_end[a][p] for a in planner.assets.set for p in planner.P)
-    return
 
 def add_GB_asset_constr(model, planner, mod_asset = 0):
     for a in planner.assets.set:
@@ -306,7 +287,6 @@ def add_GB_asset_constr(model, planner, mod_asset = 0):
             model.formulation += lp.lpSum(model.W[a][l][p] for l in L_unfeas for p in planner.P) == 0
             for p in planner.P:
                 model.formulation += model.W_end[a][p] == lp.lpSum(model.W_end[a][p] for p in planner.P)*planner.user_portfolio[p]
-    return
 
 def add_BaH_asset_constr(model, planner):
     Asset_al_split, Asset_aend_split = smart_asset_allocation(planner)
@@ -318,26 +298,22 @@ def add_BaH_asset_constr(model, planner):
             model.formulation += model.W_end[a][p] == Asset_aend_split[a]*planner.user_portfolio[p]
             for l in L_feas:
                 model.formulation += model.W[a][l][p] == Asset_al_split[l][a]*planner.user_portfolio[p]
-    return
 
 def add_portfolio_evolution_constr(model, planner, mod_liab = 0):
     for l in planner.liabilities.set:
         for n in planner.N:
             model.formulation += model.Q[l][n] == lp.lpSum(model.W[a][l][p]*np.exp(np.sum(planner.Scenario[p][n][planner.assets.period[a]:planner.liabilities.period[l]])) for a in planner.assets.set for p in planner.P) - model.Q_ex[l][n]
             model.formulation += model.Q[l][n] <= planner.liabilities.value_tg[l]*(1-mod_liab)
-    return
 
 def add_extrawealth_mgmt_constr(model, planner):
     for n in planner.N:
         model.formulation += model.Q_end[n] == lp.lpSum(model.W_end[a][p]*np.exp(np.sum(planner.Scenario[p][n][planner.assets.period[a]:len(planner.T)])) for a in planner.assets.set for p in planner.P) + lp.lpSum(model.Q_ex[l][n]*planner.user_portfolio[p]*np.exp(np.sum(planner.Scenario[p][n][planner.liabilities.period[l]:len(planner.T)])) for l in planner.liabilities.set for p in planner.P)
-    return
 
 def add_GB_risk_constr(model, planner, mod_liab = 0):
     for l in planner.liabilities.set:
         model.formulation += model.gamma[l] + lp.lpSum(model.V[l][n] for n in planner.N)/(len(planner.N)*(1-planner.liabilities.cvar_lim[l])) <= (planner.liabilities.value_tg[l] - planner.liabilities.value_lb[l])*(1-mod_liab)
         for n in planner.N:
             model.formulation += model.V[l][n] >= planner.liabilities.value_tg[l]*(1-mod_liab) - model.Q[l][n] - model.gamma[l]
-    return
 
 def smart_asset_allocation(planner):
     Assets_list = planner.assets.lists()
@@ -395,7 +371,6 @@ def model_solve_BaH(model, planner, portfolio_strategy):
             model.solution.goal_exwealth[l][n] = Q_ex[l][n]
     for n in model.N:
         model.solution.final_exwealth[n] = Q_end[n]
-    return
 
 def get_BaH_W(planner, Asset_al_split, portfolio_strategy):
     W = {}
@@ -451,7 +426,6 @@ def model_solve(model):
     model.solution = ALMSolution(status)
     if model.solution.status == 1:
         save_solution(model)
-    return 
 
 def save_solution(model):
     for a in model.A:
@@ -475,4 +449,3 @@ def save_solution(model):
             model.solution.loss_distr[l][n] = model.V[l][n].varValue
     for n in model.N:
         model.solution.final_exwealth[n] = model.Q_end[n].varValue
-    return
