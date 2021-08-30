@@ -26,52 +26,67 @@ user_portfolio_code = {
     4:84
     }
 
-# %% 
-# Wealth planner
-
-problem = ALM.ALMplanner(start = "2021", end = "2041", user_risk_profile = user_portfolio_code[0])
-problem.liabilities.insert("car", "2026", 25000, 25000*0.65)
-problem.liabilities.insert("university", "2029", 50000, 50000*0.95)
-problem.liabilities.insert("hawaii", "2037",25000, 25000*0.85) 
-problem.assets.insert("init","Jan 2021",30000)
-ALM.add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
-problem_chart = go.FigureWidget(ALMc.planner_chart(problem, bar_width=6))
-ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
-example_options = [("20y-feasible-3-goals",1), ("20y-unfeasible-3-goals",4),("40y-feasible-pensionfund",2),("20y-feasible-singlegoal",3)]
-urp_options = [("low risk",0), ("low-mid risk",1),("mid risk",2),("mid-high risk",3),("high risk",4)]
-
-@interact_manual(example_select = widgets.Dropdown(options = example_options, value = 1, style = {'description': 'Select example:'}), user_risk_profile = widgets.Dropdown(options = urp_options, value = 0, style = {'description': 'User risk profile:'}))
-def planner_demo(example_select, user_risk_profile):
-    global problem
-    if example_select == 1:
+def generate_example(example_ID, user_risk_profile):
+    if example_ID == 1:
         problem = ALM.ALMplanner(start = "2021", end = "2041", user_risk_profile = user_portfolio_code[user_risk_profile])
         problem.liabilities.insert("car", "2026", 25000, 25000*0.65)
         problem.liabilities.insert("university", "2029", 50000, 50000*0.95)
         problem.liabilities.insert("hawaii", "2037",25000, 25000*0.85) 
         problem.assets.insert("init","Jan 2021",30000)
         ALM.add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
-    elif example_select == 2:
+    elif example_ID == 2:
         problem = ALM.ALMplanner(start = "Jan 2021", end = "Jan 2061", user_risk_profile = user_portfolio_code[user_risk_profile])
         ALM.add_recurrent(problem, start = "Jan 2021", end = "Jan 2040", type = "asset", value = 1000, label = "ass")
         ALM.add_recurrent(problem, start = "Jan 2041", end = "Jan 2060", type = "goal", value_tg = 1500, value_lb = 1100, label = "ret")
-    elif example_select == 3:
+    elif example_ID == 3:
         problem = ALM.ALMplanner(start = "2021", end = "2041", user_risk_profile = user_portfolio_code[user_risk_profile])
         problem.liabilities.insert("car", "2036", 45000, 45000*0.65) 
         problem.assets.insert("init","Jan 2021",40000)
-    elif example_select == 4:
+    elif example_ID == 4:
         problem = ALM.ALMplanner(start = "2021", end = "2041", user_risk_profile = user_portfolio_code[user_risk_profile])
         problem.liabilities.insert("car", "2026", 30000, 30000*0.65)
         problem.liabilities.insert("university", "2029", 50000, 50000*0.95)
         problem.liabilities.insert("hawaii", "2037",30000, 30000*0.85) 
         problem.assets.insert("init","Jan 2021",30000)
         ALM.add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
+    return problem
+
+def legend_top_position(plt):
+    plt.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1)
+    )
+# %% 
+# Wealth planner
+first_example_ID = 1
+first_urp = 0
+
+problem = generate_example(first_example_ID, first_urp)
+problem_chart = go.FigureWidget(ALMc.planner_chart(problem, bar_width=6))
+ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
+problem_chart.update_layout(margin=dict(t=50,l=20,b=20,r=20))
+
+SMF = problem.assets.lists()
+print(SMF.head())
+
+example_options = [("20y-feasible-3-goals",1), ("20y-unfeasible-3-goals",4),("40y-feasible-pensionfund",2),("20y-feasible-singlegoal",3)]
+urp_options = [("low risk",0), ("low-mid risk",1),("mid risk",2),("mid-high risk",3),("high risk",4)]
+
+@interact_manual(example_select = widgets.Dropdown(options = example_options, value = 1, style = {'description': 'Select example:'}), user_risk_profile = widgets.Dropdown(options = urp_options, value = first_urp, style = {'description': 'User risk profile:'}))
+def planner_demo(example_select, user_risk_profile):
+    global problem
+    problem = generate_example(example_select, user_risk_profile)
     new_plan = go.FigureWidget(ALMc.planner_chart(problem, bar_width=6))
     with problem_chart.batch_update():
         n_index = int(len(problem_chart.data))
         for i in np.arange(n_index):
             problem_chart.data[i].y = new_plan.data[i].y
             problem_chart.data[i].x = new_plan.data[i].x
-        ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
+    ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
+    problem_chart.update_layout(margin=dict(t=50,l=20,b=20,r=20))
     return
 
 display(problem_chart)
@@ -119,11 +134,12 @@ fig1 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, hor
 plt = ALMc.AssetAllocationChart(problem,sol,n_scen=n_scen, perc = perc)
 #fig1 = go.FigureWidget(plt)
 fig1.add_traces(data=plt.data, rows = 1, cols = 1)
-plt = ALMc.AssetAllocationChart(problem,sol_bah,n_scen=n_scen, perc = perc)#, showlegend= False)
+plt = ALMc.AssetAllocationChart(problem,sol_bah,n_scen=n_scen, perc = perc, showlegend= False)
 #fig1_bah = go.FigureWidget(plt)
 fig1.add_traces(data=plt.data, rows = 1, cols = 2)
 
 ALMc.standardized_chart(fig1, perc = perc, showlegend= showlegend)
+legend_top_position(fig1)
 #ALMc.standardized_chart(fig1_bah, perc = perc, showlegend= showlegend)
 
 asset = ALMc.AssetSplitDetailsChart(problem, sol, "ETF", colormap_ETF)    
@@ -137,12 +153,14 @@ fig2.add_traces(data=prob.data, rows = 1, cols = 1)
 fig2.add_traces(data=prob_bah.data, rows = 1, cols = 2)
 fig2.update_layout(barmode = "stack")
 fig2 = ALMc.standardized_chart(fig2, perc= True, showlegend=showlegend)
+legend_top_position(fig2)
 
 fig3 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
 fig3.add_traces(data=avg.data, rows = 1, cols = 1)
 fig3.add_traces(data=avg_bah.data, rows = 1, cols = 2)
 fig3.update_layout(barmode = "overlay")
 fig3 = ALMc.standardized_chart(fig3, perc = perc, showlegend=showlegend)
+legend_top_position(fig3)
 
 success_prob, fail_prob, tot_wealth_avg, paid_advance_avg, avg_loss_in_failure = ALMc.EoPWealthInfo(problem, sol)
 success_prob_bah, fail_prob_bah, tot_wealth_avg_bah, paid_advance_avg_bah, avg_loss_in_failure_bah = ALMc.EoPWealthInfo(problem, sol_bah)
@@ -163,7 +181,7 @@ BaH_summary2 = widgets.HTML(value='<b><h1><p style="text-align:center">Buy-and-h
 
 dashboard = GridBox(children=[goal_based_summary,fig1, BaH_summary,plan_success_prob,fig2,plan_success_prob_bah,eop_wealth_summary,fig3,eop_wealth_summary_bah],
         layout=Layout(
-            width='80%',
+            width='100%',
             grid_template_rows='auto auto auto',
             grid_template_columns='25% 50% 25%',
             grid_template_areas=''' 
@@ -184,7 +202,7 @@ def update(percentual,BaH_strategy):
         for i in np.arange(n_index):
             fig1.data[i].y = np.zeros(len(fig1.data[i].y))
             fig1.data[i+n_index].y = np.zeros(len(fig1.data[i+n_index].y))
-        ALMc.standardized_chart(fig1, perc = perc, showlegend= True)
+        ALMc.standardized_chart(fig1, perc = perc)
     with fig2.batch_update():
         n_index = int(len(fig2.data)/2)
         for i in np.arange(n_index):
@@ -197,6 +215,7 @@ def update(percentual,BaH_strategy):
             fig3.data[i].y = np.zeros(len(fig3.data[i].y))
             fig3.data[i+n_index].y = np.zeros(len(fig3.data[i+n_index].y))
         ALMc.standardized_chart(fig3, perc = perc, showlegend= True)
+
     if not(current_user_risk_profile == BaH_strategy):
         current_user_risk_profile = BaH_strategy
         sol.update_end(problem,buyandhold_portfolios[BaH_strategy])

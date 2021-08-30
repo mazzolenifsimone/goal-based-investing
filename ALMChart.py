@@ -28,60 +28,59 @@ def standardized_chart(plt, perc = False, showlegend = False):
     return plt
 
 def planner_chart(planner, bar_width=6):
-        ETF_GBM = planner.__DF_Scenario__
+    ETF_GBM = planner.__DF_Scenario__
 
-        portfolio = pd.Series(planner.user_portfolio.values(),index = planner.user_portfolio.keys())
-        userpf_capfact = np.dot(np.exp(ETF_GBM[planner.P]), portfolio)
-        cap_factor_ptf = np.reshape(userpf_capfact, (int(len(userpf_capfact)/len(planner.N)),len(planner.N)))
+    portfolio = pd.Series(planner.user_portfolio.values(),index = planner.user_portfolio.keys())
+    userpf_capfact = np.dot(np.exp(ETF_GBM[planner.P]), portfolio)
+    cap_factor_ptf = np.reshape(userpf_capfact, (int(len(userpf_capfact)/len(planner.N)),len(planner.N)))
 
-        SMF = planner.StandardModelForm()
+    SMF = planner.StandardModelForm()
 
-        Ass_val = SMF["Asset Value"].fillna(0)
-        Liab_val = SMF["Goal Value"].fillna(0)
-        low_Liab_val = SMF["Goal Lower Bound"].fillna(0)
+    Ass_val = SMF["Asset Value"].fillna(0)
+    Liab_val = SMF["Goal Value"].fillna(0)
+    low_Liab_val = SMF["Goal Lower Bound"].fillna(0)
 
-        up_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
-        med_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
-        low_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
-        for i in SMF["Month since Start"]:
-            if i==0:
-                up_capitalized_value_n[i,:] = Ass_val[i]
-                med_capitalized_value_n[i,:] = Ass_val[i]
-                low_capitalized_value_n[i,:] = Ass_val[i]
-            else:
-                up_capitalized_value_n[i,:] = np.maximum(up_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - Liab_val[i],0)
-                med_capitalized_value_n[i,:] = np.maximum(med_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - (Liab_val[i]+low_Liab_val[i])/2,0)
-                low_capitalized_value_n[i,:] = np.maximum(low_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - low_Liab_val[i], 0)
+    up_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
+    med_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
+    low_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
+    for i in SMF["Month since Start"]:
+        if i==0:
+            up_capitalized_value_n[i,:] = Ass_val[i]
+            med_capitalized_value_n[i,:] = Ass_val[i]
+            low_capitalized_value_n[i,:] = Ass_val[i]
+        else:
+            up_capitalized_value_n[i,:] = np.maximum(up_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - Liab_val[i],0)
+            med_capitalized_value_n[i,:] = np.maximum(med_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - (Liab_val[i]+low_Liab_val[i])/2,0)
+            low_capitalized_value_n[i,:] = np.maximum(low_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - low_Liab_val[i], 0)
 
-        med_capitalized_value = np.quantile(med_capitalized_value_n, 0.5,axis=1)
-        up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
-        low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
-        
-        fig = go.Figure(data = [
-            go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "Invested asset",marker_line = dict(width = 1.5, color = "steelblue")),
-            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "Optimal goal",marker_line = dict(width = 1.5, color = "dimgray")),
-            go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "Minimum goal"),
-            go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "Wealth consumption"),
-            go.Scatter(x = SMF["Month since Start"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="95% quantile"),
-            go.Scatter(x = SMF["Month since Start"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "5% quantile"),
-            go.Scatter(x = SMF["Month since Start"], y=med_capitalized_value, mode = "lines", line_color = "blue", name = "50% quantile"),
-            ],
-            layout = go.Layout(barmode = "overlay")
-        )
+    med_capitalized_value = np.quantile(med_capitalized_value_n, 0.5,axis=1)
+    up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
+    low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
+    
+    fig = go.Figure(data = [
+        go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "assets invested",marker_line = dict(width = 1.5, color = "steelblue")),
+        go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "optimal goals",marker_line = dict(width = 1.5, color = "dimgray")),
+        go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "minimum goal"),
+        go.Scatter(x = SMF["Month since Start"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="90% confidence band", showlegend = False, legendgroup = "bell"),
+        go.Scatter(x = SMF["Month since Start"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "90% confidence band", legendgroup = "bell"),
+                    go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "wealth consumption"),
+        go.Scatter(x = SMF["Month since Start"], y=med_capitalized_value, mode = "lines", line_color = "blue", name = "median value"),
+        ],
+        layout = go.Layout(barmode = "overlay")
+    )
 
-        fig = standardized_chart(fig)
-        lowerlimit = min(-max(Liab_val),min(np.cumsum(Ass_val-Liab_val)))
-        upperlimit = max(med_capitalized_value)
-        margin = -lowerlimit*0.25
-        fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
-        fig.update_layout(   title={
-        'text': "Wealth Planner",
-        'xanchor': 'center',
-        'yanchor': 'top'},
-                            showlegend=True,
-                            legend_traceorder="normal"
-                        )
-        return fig
+    fig = standardized_chart(fig)
+    lowerlimit = min(-max(Liab_val),min(np.cumsum(Ass_val-Liab_val)))
+    upperlimit = max(med_capitalized_value)
+    margin = -lowerlimit*0.25
+    fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
+    fig.update_layout(   title={'text': "Investment Planner"},
+                        showlegend=True,
+                        legend_traceorder="normal"
+                    )
+    fig.update_xaxes(title_text='Months since start')
+    fig.update_yaxes(title_text='Value')
+    return fig
 
 def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None, showlegend=True):
     P = planner.P
