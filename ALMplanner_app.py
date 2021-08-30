@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime as dt
-import ALMPlanner as ALM
+import ALMplanner as ALM
 import ALMChart as ALMc
 import os
 from ALMChart import standardized_chart
@@ -70,7 +70,6 @@ ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
 problem_chart.update_layout(margin=dict(t=50,l=20,b=20,r=20))
 
 SMF = problem.assets.lists()
-print(SMF.head())
 
 example_options = [("20y-feasible-3-goals",1), ("20y-unfeasible-3-goals",4),("40y-feasible-pensionfund",2),("20y-feasible-singlegoal",3)]
 urp_options = [("low risk",0), ("low-mid risk",1),("mid risk",2),("mid-high risk",3),("high risk",4)]
@@ -252,5 +251,9 @@ def update(percentual,BaH_strategy):
 
 
 display(dashboard)
+
+# %%
+
+# %%
 
 # %%
