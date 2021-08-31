@@ -60,7 +60,7 @@ def planner_chart(planner, bar_width=6):
     fig = go.Figure(data = [
         go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "assets invested",marker_line = dict(width = 1.5, color = "steelblue")),
         go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "optimal goals",marker_line = dict(width = 1.5, color = "dimgray")),
-        go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "minimum goal"),
+        go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "minimum goals"),
         go.Scatter(x = SMF["Month since Start"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="90% confidence band", showlegend = False, legendgroup = "bell"),
         go.Scatter(x = SMF["Month since Start"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "90% confidence band", legendgroup = "bell"),
                     go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "wealth consumption"),
@@ -79,7 +79,7 @@ def planner_chart(planner, bar_width=6):
                         legend_traceorder="normal"
                     )
     fig.update_xaxes(title_text='Months since start')
-    fig.update_yaxes(title_text='Value')
+    fig.update_yaxes(title_text='Wealth')
     return fig
 
 def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio_strategy = None, showlegend=True):

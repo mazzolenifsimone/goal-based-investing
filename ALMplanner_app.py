@@ -1,17 +1,11 @@
 #%% Library, path and constants
 import numpy as np
-import pandas as pd
-import pulp as lp
-import pickle as pkl
-import time
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import datetime as dt
 import ALMplanner as ALM
 import ALMChart as ALMc
 import os
-from ALMChart import standardized_chart
 from ipywidgets import widgets, interact_manual, GridBox, Layout
 from IPython.display import display
 
@@ -55,10 +49,31 @@ def legend_top_position(plt):
     plt.update_layout(legend=dict(
         orientation="h",
         yanchor="bottom",
-        y=1.02,
+        y=1.01,
         xanchor="right",
         x=1)
     )
+
+def plan_succes_prob_widget(success_prob,fail_prob):
+    return widgets.HTML(
+    f"""<p style=\"text-align:center\"><b>Plan success/failure probability</b></p><br />  
+    <p style=\"color:green; font-size:150%; text-align:center\">Success:</p> 
+    <p style=\"color:green; font-size:200%; text-align:center\">{success_prob}%</p> 
+    <p style=\"color:red; font-size:150%; text-align:center\">Failure:</p> 
+    <p style=\"color:red; font-size:200%; text-align:center\">{fail_prob}%</p>"""
+    )
+
+def eop_wealth_summary_widget(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
+    return widgets.HTML(
+    f"""<p style=\"text-align:center\"><b>End-of-period wealth summary</b></p>
+    <p style=\"color:blue; font-size:150%; text-align:center\">Expected wealth</p>
+    <p style=\"color:blue; font-size:200%; text-align:center\">{tot_wealth_avg}€</p>
+    <p style=\"color:gold; font-size:150%; text-align:center\">Thereof paid in advance</p>
+    <p style=\"color:gold; font-size:200%; text-align:center\">{paid_advance_avg}€</p>
+    <p style=\"color:red; font-size:150%; text-align:center\">Shortfall in case of failure</p>
+    <p style=\"color:red; font-size:200%; text-align:center\">{avg_loss_in_failure}€</p>"""
+    )
+
 # %% 
 # Wealth planner
 first_example_ID = 1
@@ -86,7 +101,6 @@ def planner_demo(example_select, user_risk_profile):
             problem_chart.data[i].x = new_plan.data[i].x
     ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
     problem_chart.update_layout(margin=dict(t=50,l=20,b=20,r=20))
-    return
 
 display(problem_chart)
 # %% 
@@ -105,24 +119,14 @@ BaH_model.solve()
 
 sol = GB_model.solution
 sol_bah = BaH_model.solution
-#%%
-colormap_liab = {}
+#%% 
+# Display Solution: init charts
 colormap_ETF = {}
-Ltot = list(problem.liabilities.set)
-Ltot.append("extra_wealth")
 it = -1
-for e in Ltot:
-    it = it+1
-    colormap_liab[e] = px.colors.qualitative.Plotly[it%10]
-
-it=-1
 for p in problem.P:
     it = it+1
     colormap_ETF[p] = px.colors.qualitative.Plotly[it%10]
-it = -1
 
-#%% 
-# Display Solution
 n_scen = None
 perc = False
 showlegend = True
@@ -163,20 +167,13 @@ legend_top_position(fig3)
 
 success_prob, fail_prob, tot_wealth_avg, paid_advance_avg, avg_loss_in_failure = ALMc.EoPWealthInfo(problem, sol)
 success_prob_bah, fail_prob_bah, tot_wealth_avg_bah, paid_advance_avg_bah, avg_loss_in_failure_bah = ALMc.EoPWealthInfo(problem, sol_bah)
+plan_success_prob = plan_succes_prob_widget(success_prob,fail_prob)
+plan_success_prob_bah = plan_succes_prob_widget(success_prob_bah,fail_prob_bah)
+eop_wealth_summary = eop_wealth_summary_widget(int(tot_wealth_avg),int(paid_advance_avg),int(avg_loss_in_failure))
+eop_wealth_summary_bah = eop_wealth_summary_widget(int(tot_wealth_avg_bah),int(paid_advance_avg_bah),int(avg_loss_in_failure_bah))
 
-plan_success_prob = widgets.HTML(f"<br />Plan success/failure probability:<br />   Success: {success_prob}%,<br />   Failure: {fail_prob}%<br />")
-eop_wealth_summary = widgets.HTML(f"<br />End-of-period wealth summary:<br />                expected wealth: {int(tot_wealth_avg)}€<br />        thereof paid in advance: {int(paid_advance_avg)}€<br />   shortfall in case of failure: {int(avg_loss_in_failure)}€")
-
-plan_success_prob_bah = widgets.HTML(f"<br />Plan success/failure probability:<br />   Success: {success_prob_bah}%,<br />   Failure: {fail_prob_bah}%<br />")
-eop_wealth_summary_bah = widgets.HTML(f"<br />End-of-period wealth summary:<br />                expected wealth: {int(tot_wealth_avg_bah)}€<br />        thereof paid in advance: {int(paid_advance_avg_bah)}€<br />   shortfall in case of failure: {int(avg_loss_in_failure_bah)}€")
-
-goal_based_summary = widgets.HTML(value='<b><h1><p style="text-align:center">Goal-based strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
-BaH_summary = widgets.HTML(value='<b><h1><p style="text-align:center">Buy-and-hold strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
-
-goal_based_summary2 = widgets.HTML(value='<b><h1><p style="text-align:center">Goal-based strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
-BaH_summary2 = widgets.HTML(value='<b><h1><p style="text-align:center">Buy-and-hold strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
-
-
+goal_based_summary = widgets.HTML(value='<br><br><b><h1><p style="text-align:center">Goal-based strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
+BaH_summary = widgets.HTML(value='<br><br><b><h1><p style="text-align:center">Buy-and-hold strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
 
 dashboard = GridBox(children=[goal_based_summary,fig1, BaH_summary,plan_success_prob,fig2,plan_success_prob_bah,eop_wealth_summary,fig3,eop_wealth_summary_bah],
         layout=Layout(
@@ -188,14 +185,23 @@ dashboard = GridBox(children=[goal_based_summary,fig1, BaH_summary,plan_success_
             "plan_success_prob fig2 plan_success_prob_bah" 
             "eop_wealth_summary fig3 eop_wealth_summary_bah"''')
        )
+#%%
+# Display Solution: interact manual widget
 
-@interact_manual(percentual = perc, BaH_strategy = widgets.IntSlider(range = [0,(len(buyandhold_portfolios)-1)], value = problem.user_risk_profile, style = {'description_width': 'initial'} ))
+@interact_manual(
+    percentual = perc, 
+    BaH_strategy = widgets.IntSlider(
+            range = [0,(len(buyandhold_portfolios)-1)], 
+            value = problem.user_risk_profile, 
+            style = {'description_width': 'initial'} 
+        )
+    )
 def update(percentual,BaH_strategy):
     global current_user_risk_profile
     global sol
     global sol_bah
     perc = percentual
-    ## Reset Chart
+    ## 1 - Reset Charts
     with fig1.batch_update():
         n_index = int(len(fig1.data)/2)
         for i in np.arange(n_index):
@@ -214,7 +220,12 @@ def update(percentual,BaH_strategy):
             fig3.data[i].y = np.zeros(len(fig3.data[i].y))
             fig3.data[i+n_index].y = np.zeros(len(fig3.data[i+n_index].y))
         ALMc.standardized_chart(fig3, perc = perc, showlegend= True)
-
+    plan_success_prob.value = plan_succes_prob_widget("-","-").value
+    plan_success_prob_bah.value = plan_succes_prob_widget("-","-").value
+    eop_wealth_summary.value = eop_wealth_summary_widget("-","-","-").value
+    eop_wealth_summary_bah.value = eop_wealth_summary_widget("-","-","-").value
+    
+    # 2 - Update Charts
     if not(current_user_risk_profile == BaH_strategy):
         current_user_risk_profile = BaH_strategy
         sol.update_end(problem,buyandhold_portfolios[BaH_strategy])
@@ -247,13 +258,11 @@ def update(percentual,BaH_strategy):
             fig3.data[i].y = avg.data[i].y
             fig3.data[i+n_index].y = avg_bah.data[i].y
         ALMc.standardized_chart(fig3, perc = perc, showlegend= True)
-    return
+    plan_success_prob.value = plan_succes_prob_widget(success_prob,fail_prob).value
+    plan_success_prob_bah.value = plan_succes_prob_widget(success_prob_bah,fail_prob_bah).value
+    eop_wealth_summary.value = eop_wealth_summary_widget(int(tot_wealth_avg),int(paid_advance_avg),int(avg_loss_in_failure)).value
+    eop_wealth_summary_bah.value = eop_wealth_summary_widget(int(tot_wealth_avg_bah),int(paid_advance_avg_bah),int(avg_loss_in_failure_bah)).value
 
 
 display(dashboard)
-
-# %%
-
-# %%
-
 # %%
