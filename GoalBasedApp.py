@@ -1,4 +1,4 @@
-import ALMPlanner as ALM
+import ALMplanner as ALM
 import ALMChart as  ALMc
 import dash
 import dash_core_components as dcc

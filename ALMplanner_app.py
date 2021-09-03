@@ -6,7 +6,7 @@ from plotly.subplots import make_subplots
 import ALMplanner as ALM
 import ALMChart as ALMc
 import os
-from ipywidgets import widgets, interact_manual, GridBox, Layout
+from ipywidgets import widgets, interact_manual, GridBox, Layout, GridspecLayout
 from IPython.display import display
 
 path_example = os.path.join(os.getcwd(), "example")
@@ -54,10 +54,28 @@ def legend_top_position(plt):
         x=1)
     )
 
+
+def plan_succes_prob_title_widget():
+    return widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>Plan success/failure probability</b></p><br />""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+def plan_succes_prob_by_goal_title_widget():
+    return widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>Shortfall probabilities by goal</b></p><br />""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+def eop_wealth_summary_title_widget():
+    return widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>End-of-period wealth summary</b></p>""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+def eop_wealth_summary_by_goal_title_widget():
+    return widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>Goals payoff details</b></p>""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+
+
 def plan_succes_prob_widget(success_prob,fail_prob):
     return widgets.HTML(
-    f"""<p style=\"text-align:center\"><b>Plan success/failure probability</b></p><br />  
-    <p style=\"color:green; font-size:150%; text-align:center\">Success:</p> 
+    f"""<p style=\"color:green; font-size:150%; text-align:center\">Success:</p> 
     <p style=\"color:green; font-size:200%; text-align:center\">{success_prob}%</p> 
     <p style=\"color:red; font-size:150%; text-align:center\">Failure:</p> 
     <p style=\"color:red; font-size:200%; text-align:center\">{fail_prob}%</p>"""
@@ -65,10 +83,9 @@ def plan_succes_prob_widget(success_prob,fail_prob):
 
 def eop_wealth_summary_widget(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
     return widgets.HTML(
-    f"""<p style=\"text-align:center\"><b>End-of-period wealth summary</b></p>
-    <p style=\"color:blue; font-size:150%; text-align:center\">Expected wealth</p>
-    <p style=\"color:blue; font-size:200%; text-align:center\">{tot_wealth_avg}€</p>
-    <p style=\"color:gold; font-size:150%; text-align:center\">Thereof paid in advance</p>
+    f"""<p style=\"color:green; font-size:150%; text-align:center\">Expected total wealth</p>
+    <p style=\"color:green; font-size:200%; text-align:center\">{tot_wealth_avg}€</p>
+    <p style=\"color:gold; font-size:150%; text-align:center\">Expected goals payoff</p>
     <p style=\"color:gold; font-size:200%; text-align:center\">{paid_advance_avg}€</p>
     <p style=\"color:red; font-size:150%; text-align:center\">Shortfall in case of failure</p>
     <p style=\"color:red; font-size:200%; text-align:center\">{avg_loss_in_failure}€</p>"""
@@ -120,6 +137,9 @@ BaH_model.solve()
 sol = GB_model.solution
 sol_bah = BaH_model.solution
 #%% 
+
+
+
 # Display Solution: init charts
 colormap_ETF = {}
 it = -1
@@ -143,6 +163,7 @@ fig1.add_traces(data=plt.data, rows = 1, cols = 2)
 
 ALMc.standardized_chart(fig1, perc = perc, showlegend= showlegend)
 legend_top_position(fig1)
+#fig1.update_layout(title_text='Asset Allocation Evolution', title_x=0.5)
 #ALMc.standardized_chart(fig1_bah, perc = perc, showlegend= showlegend)
 
 asset = ALMc.AssetSplitDetailsChart(problem, sol, "ETF", colormap_ETF)    
@@ -157,12 +178,14 @@ fig2.add_traces(data=prob_bah.data, rows = 1, cols = 2)
 fig2.update_layout(barmode = "stack")
 fig2 = ALMc.standardized_chart(fig2, perc= True, showlegend=showlegend)
 legend_top_position(fig2)
+#fig2.update_layout(title_text='Shortfall probabilities by goal', title_x=0.5)
 
 fig3 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
 fig3.add_traces(data=avg.data, rows = 1, cols = 1)
 fig3.add_traces(data=avg_bah.data, rows = 1, cols = 2)
 fig3.update_layout(barmode = "overlay")
 fig3 = ALMc.standardized_chart(fig3, perc = perc, showlegend=showlegend)
+#fig2.update_layout(title_text='Goals payoff details', title_x=0.5)
 legend_top_position(fig3)
 
 success_prob, fail_prob, tot_wealth_avg, paid_advance_avg, avg_loss_in_failure = ALMc.EoPWealthInfo(problem, sol)
@@ -172,19 +195,64 @@ plan_success_prob_bah = plan_succes_prob_widget(success_prob_bah,fail_prob_bah)
 eop_wealth_summary = eop_wealth_summary_widget(int(tot_wealth_avg),int(paid_advance_avg),int(avg_loss_in_failure))
 eop_wealth_summary_bah = eop_wealth_summary_widget(int(tot_wealth_avg_bah),int(paid_advance_avg_bah),int(avg_loss_in_failure_bah))
 
-goal_based_summary = widgets.HTML(value='<br><br><b><h1><p style="text-align:center">Goal-based strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
-BaH_summary = widgets.HTML(value='<br><br><b><h1><p style="text-align:center">Buy-and-hold strategy</p></h1></b>', layout=widgets.Layout(display='flex', justify_content='center'))
+goal_based_summary = widgets.HTML(
+    value='<br><br><b><h1><p style="text-align:center">Goal-based investment strategy</p></h1></b>', 
+    layout=widgets.Layout(display='flex', justify_content='center'))
 
-dashboard = GridBox(children=[goal_based_summary,fig1, BaH_summary,plan_success_prob,fig2,plan_success_prob_bah,eop_wealth_summary,fig3,eop_wealth_summary_bah],
-        layout=Layout(
-            width='100%',
-            grid_template_rows='auto auto auto',
-            grid_template_columns='25% 50% 25%',
-            grid_template_areas=''' 
-            "goal_based_summary fig1 BaH_summary" 
-            "plan_success_prob fig2 plan_success_prob_bah" 
-            "eop_wealth_summary fig3 eop_wealth_summary_bah"''')
-       )
+BaH_summary = widgets.HTML(
+    value='<br><br><b><h1><p style="text-align:center">Buy-and-hold investment strategy</p></h1></b>', 
+    layout=widgets.Layout(display='flex', justify_content='center'))
+
+fig1_title = widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>Asset Allocation Evolution</b></p>""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+fig2_title = widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>Shortfall probabilities by goal</b></p><br />""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+fig3_title = widgets.HTML(
+    value = f"""<p style=\"text-align:center\"><b>Goals payoff details</b></p>""",
+    layout = widgets.Layout(display='flex', justify_content='center'))
+
+plan_success_prob_title = plan_succes_prob_title_widget()
+plan_success_prob_bah_title = plan_succes_prob_title_widget()
+
+eop_wealth_summary_title = eop_wealth_summary_title_widget()
+eop_wealth_summary_bah_title = eop_wealth_summary_title_widget()
+
+# %%
+gs = GridspecLayout(7,3)
+
+gs[0,0] = goal_based_summary 
+gs[0,2] = BaH_summary
+gs[1,1] = fig1_title
+gs[2,:] = widgets.HBox([fig1],
+                    layout=widgets.Layout(
+                        display="flex"
+                    ))
+gs[3,0] = plan_success_prob_title
+gs[3,1] = fig2_title
+gs[3,2] = plan_success_prob_bah_title
+gs[4,0] = plan_success_prob 
+gs[4,1] = widgets.HBox([fig2],
+                    layout=widgets.Layout(
+                        display="flex",
+                        align_items="stretch"
+                    ))
+gs[4,2] = plan_success_prob_bah
+gs[5,0] = eop_wealth_summary_title
+gs[5,1] = fig3_title
+gs[5,2] = eop_wealth_summary_bah_title
+gs[6,0] = eop_wealth_summary
+gs[6,1] = widgets.HBox([fig3],
+                    layout=widgets.Layout(
+                        display="flex", 
+                        align_items="stretch"
+                    ))
+gs[6,2] = eop_wealth_summary_bah
+gs.layout.grid_template_columns='25% 50% 25%'
+gs.layout.grid_template_rows='10% 5% 25% 5% 25% 5% 25%'
+gs[2,:].layout.width = '100%'
+#display(gs)
 #%%
 # Display Solution: interact manual widget
 
@@ -263,6 +331,9 @@ def update(percentual,BaH_strategy):
     eop_wealth_summary.value = eop_wealth_summary_widget(int(tot_wealth_avg),int(paid_advance_avg),int(avg_loss_in_failure)).value
     eop_wealth_summary_bah.value = eop_wealth_summary_widget(int(tot_wealth_avg_bah),int(paid_advance_avg_bah),int(avg_loss_in_failure_bah)).value
 
+display(gs)
+#display(dashboard)
 
-display(dashboard)
+# %%
+
 # %%

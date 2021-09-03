@@ -18,13 +18,6 @@ def standardized_chart(plt, perc = False, showlegend = False):
         plt.update_yaxes(range=[0, 1])
     else:
         plt.update_yaxes(autorange = True)
-    #plt.update_layout(legend=dict(
-    #orientation="h",
-    #yanchor="bottom",
-    #y=1.02,
-    #xanchor="right",
-    #x=1)
-    # )
     return plt
 
 def planner_chart(planner, bar_width=6):
@@ -74,10 +67,10 @@ def planner_chart(planner, bar_width=6):
     upperlimit = max(med_capitalized_value)
     margin = -lowerlimit*0.25
     fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
-    fig.update_layout(   title={'text': "Investment Planner"},
-                        showlegend=True,
-                        legend_traceorder="normal"
-                    )
+    #fig.update_layout(   title={'text': "Investment Planner"},
+    #                    showlegend=True,
+    #                    legend_traceorder="normal"
+    #                )
     fig.update_xaxes(title_text='Months since start')
     fig.update_yaxes(title_text='Wealth')
     return fig
@@ -245,14 +238,14 @@ def GoalRiskDetails(planner, solution, perc, showlegend = True):
         df = np.divide(df.T, df["goal"], axis = 1).T
     GAWChart = go.Figure(
         data = [
-                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Goal", marker_line = dict(width = 1.5, color = "slategray"), hoverinfo = "skip", showlegend = showlegend, legendgroup = "1"),  
-                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name ="Average Value", hoverinfo = "skip",legendgroup = "2",showlegend=showlegend),
-                go.Bar(x = df.index, y=df["worst"], marker_color = "red", name ="worst 5%", hoverinfo = "skip",legendgroup = "3",showlegend=showlegend),
-                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, name = "LB Value", marker_line = dict(width = 2, color = "slategray"), hoverinfo = "skip",legendgroup = "1", showlegend=showlegend),
-                go.Scatter(x = df.index, y=df["goal"], mode = "markers", name = "Goal", marker_color = "slategray", showlegend=False,legendgroup = "1"),
-                go.Scatter(x = df.index, y=df["lower_bound"], mode = "markers", name = "LB Value", marker_color = "slategray", showlegend=False, legendgroup = "1"),
-                go.Scatter(x = df.index, y=df["avg"], mode = "markers", name ="Average Value", marker_color = "limegreen", showlegend=False,legendgroup = "2"),
-                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="worst 5%", marker_color = "red", showlegend=False,legendgroup = "3")
+                go.Bar(x = df.index, y=df["goal"], marker_color = "gold", name = "Optimal Goal", marker_line = dict(width = 1.5, color = "slategray"), hoverinfo = "skip", showlegend = showlegend, legendgroup = "1"),  
+                go.Bar(x = df.index, y=df["avg"], marker_color = "limegreen", name ="Expected payoff", hoverinfo = "skip",legendgroup = "2",showlegend=showlegend),
+                go.Bar(x = df.index, y=df["worst"], marker_color = "red", name ="Average worst 5% payoff", hoverinfo = "skip",legendgroup = "3",showlegend=showlegend),
+                go.Bar(x = df.index, y=df["lower_bound"], marker_color = "white", marker_opacity = 1, name = "Minimum Goal", marker_line = dict(width = 2, color = "slategray"), hoverinfo = "skip",legendgroup = "1", showlegend=showlegend),
+                go.Scatter(x = df.index, y=df["goal"], mode = "markers", name = "Optimal Goal", marker_color = "slategray", showlegend=False,legendgroup = "1"),
+                go.Scatter(x = df.index, y=df["lower_bound"], mode = "markers", name = "Minimum Goal", marker_color = "slategray", showlegend=False, legendgroup = "1"),
+                go.Scatter(x = df.index, y=df["avg"], mode = "markers", name ="Expected payoff", marker_color = "limegreen", showlegend=False,legendgroup = "2"),
+                go.Scatter(x = df.index, y=df["worst"], mode = "markers", name ="Average worst 5% payoff", marker_color = "red", showlegend=False,legendgroup = "3")
                 ],
         layout = go.Layout(barmode = "overlay")
             )
