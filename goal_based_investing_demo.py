@@ -1,5 +1,4 @@
 
-from ALMplanner import ALMAssets
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -8,12 +7,9 @@ from dash.dependencies import Input, Output, State
 import plotly.express as px
 import ALMplanner as ALM
 import ALMChart as ALMc
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
-buyandhold_portfolios = ALM.load_scenario("scenario","eff_front")
 
 # the style arguments for the sidebar.
 SIDEBAR_STYLE = {
@@ -105,14 +101,8 @@ def legend_top_position(plt):
         x=0.5)
     )
 
-# Wealth planner
 first_example_ID = 1
 first_urp = 23
-
-problem = generate_example(first_example_ID, first_urp)
-problem_chart = go.FigureWidget(ALMc.planner_chart(problem, bar_width=6))
-ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
-problem_chart.update_layout(margin=dict(t=50,l=20,b=20,r=20))
 
 app = dash.Dash(external_stylesheets=[dbc.themes.FLATLY],)
 
@@ -192,8 +182,6 @@ def get_goal_payoff_tab(goal_payoff_chart):
             dbc.Row(dbc.Col(dcc.Graph(figure = goal_payoff_chart), width = True)),
         ]
     )
-
-planner_graph = dcc.Graph(id = 'planner_graph', figure = problem_chart)
 
 planner_tab = dcc.Tab(
     id = "planner_tab", 
