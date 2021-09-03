@@ -34,6 +34,14 @@ CONTENT_STYLE = {
     'padding': '20px 10px'
 }
 
+TITLE_STYLE = {
+    'textAlign':'center',
+    'font-weight':'bold',
+    'font-size':'150%',
+    'margin-top':'5%',
+    'margin-left':'5%',
+}
+
 TEXT_STYLE = {
     'textAlign': 'center',
     #'color': '#191970'
@@ -93,8 +101,8 @@ def legend_top_position(plt):
         orientation="h",
         yanchor="bottom",
         y=1.01,
-        xanchor="right",
-        x=1)
+        xanchor="center",
+        x=0.5)
     )
 
 # Wealth planner
@@ -139,49 +147,90 @@ sidebar = html.Div([
     style=SIDEBAR_STYLE
 )
 
+def get_planner_tab(planner_chart):
+    return html.Div(
+        [
+            dbc.Row(dbc.Col(dcc.Graph(figure = planner_chart), width = True)),
+        ]
+    )
+
+def get_asset_allocation_tab(asset_allocation_chart):
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(html.Div('Goal-Based strategy',style=TITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
+                ],
+            ),
+            dbc.Row(dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = True)),
+        ]
+    )
+
+def get_shortfall_prob_tab(shortfall_prob_chart):
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(html.Div('Goal-Based strategy',style=TITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
+                ],
+            ),
+            dbc.Row(dbc.Col(dcc.Graph(figure = shortfall_prob_chart), width = True)),
+        ]
+    )
+
+def get_goal_payoff_tab(goal_payoff_chart):
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(html.Div('Goal-Based strategy',style=TITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
+                ],
+            ),
+            dbc.Row(dbc.Col(dcc.Graph(figure = goal_payoff_chart), width = True)),
+        ]
+    )
+
 planner_graph = dcc.Graph(id = 'planner_graph', figure = problem_chart)
-asset_allocation_graph = dcc.Graph(id = 'asset_allocation_graph')
-shortfall_prob_graph = html.Div([dcc.Graph(id = 'shortfall_prob_graph')])
-goal_payoff_graph = html.Div([dcc.Graph(id = 'goal_payoff_graph')])
 
 planner_tab = dcc.Tab(
     id = "planner_tab", 
-    label = '1. Investment Planner', 
-    children = [planner_graph],
+    label = 'Investment Planner',
 )
 
 asset_allocation_tab = dcc.Tab(
     id = "asset_allocation_tab", 
-    label = '2. Asset Allocation Evolution', 
-    children = [asset_allocation_graph],
+    label = 'Solution: Asset Allocation', 
     disabled= True
 )
 
 shortfall_prob_tab = dcc.Tab(
     id = "shortfall_prob_tab", 
-    label = '3. Plan success probability', 
-    children = [shortfall_prob_graph],
+    label = 'Solution: Success Probability', 
     disabled= True
 )
 
 goal_payoff_tab = dcc.Tab(
     id = "goal_payoff_tab", 
-    label = '4. Plan payoff', 
-    children = [goal_payoff_graph],
+    label = 'Solution: Payoff',
     disabled= True
 )
 
-content = html.Div([
-    dcc.Tabs(
-        id = "content",
-        children =[planner_tab, asset_allocation_tab, shortfall_prob_tab, goal_payoff_tab], 
-    )],
+content = html.Div(
+    [
+        dcc.Tabs(
+            id = "content",
+            children =[planner_tab, asset_allocation_tab, shortfall_prob_tab, goal_payoff_tab],
+        )
+    ],
     style = CONTENT_STYLE
 )
 
 app.layout = html.Div([sidebar, content])
 
-@app.callback([Output('planner_graph', 'figure')],[Input('update_chart','n_clicks'), State('example_id', 'value'),State('user_risk_profile', 'value')], prevent_initial_call = True)
+@app.callback([Output('planner_tab', 'children')],[Input('update_chart','n_clicks'), State('example_id', 'value'),State('user_risk_profile', 'value')])#, prevent_initial_call = True)
 def update_planner_graph(update_btn, example_id, user_risk_profile):
     if not(example_id is None):
         global problem
@@ -189,7 +238,7 @@ def update_planner_graph(update_btn, example_id, user_risk_profile):
         problem_chart = ALMc.planner_chart(problem, bar_width=6)
         ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
         #problem_chart.update_layout(margin=dict(t=50,l=20,b=20,r=20))
-    return [problem_chart]
+    return [get_planner_tab(problem_chart)]
 
 @app.callback([Output('asset_allocation_tab', 'children'), Output('shortfall_prob_tab', 'children'), Output('goal_payoff_tab', 'children'),Output('asset_allocation_tab', 'disabled'), Output('shortfall_prob_tab', 'disabled'), Output('goal_payoff_tab', 'disabled')],[Input('submit_problem','n_clicks'),State('user_risk_profile', 'value')], prevent_initial_call = True)
 def submit_problem_output(update_btn, user_risk_profile):
@@ -201,37 +250,30 @@ def submit_problem_output(update_btn, user_risk_profile):
 
     sol = GB_model.solution
     sol_bah = BaH_model.solution
-        # Display Solution: init charts
+    
     colormap_ETF = {}
     it = -1
     for p in problem.P:
         it = it+1
         colormap_ETF[p] = px.colors.qualitative.Plotly[it%10]
 
+    #asset = ALMc.AssetSplitDetailsChart(problem, sol, "ETF", colormap_ETF)    
+    #asset_bah = ALMc.AssetSplitDetailsChart(problem, sol_bah, "ETF", colormap_ETF)
     n_scen = None
     perc = False
-    showlegend = True
-    horizontal_spacing = 0.03
-    current_user_risk_profile = problem.user_risk_profile
-
-    fig1 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
     plt = ALMc.AssetAllocationChart(problem,sol,n_scen=n_scen, perc = perc)
-    #fig1 = go.FigureWidget(plt)
-    fig1.add_traces(data=plt.data, rows = 1, cols = 1)
-    plt = ALMc.AssetAllocationChart(problem,sol_bah,n_scen=n_scen, perc = perc, showlegend= False)
-    #fig1_bah = go.FigureWidget(plt)
-    fig1.add_traces(data=plt.data, rows = 1, cols = 2)
-
-    ALMc.standardized_chart(fig1, perc = perc, showlegend= showlegend)
-    legend_top_position(fig1)
-    #fig1.update_layout(title_text='Asset Allocation Evolution', title_x=0.5)
-    #ALMc.standardized_chart(fig1_bah, perc = perc, showlegend= showlegend)
-
-    asset = ALMc.AssetSplitDetailsChart(problem, sol, "ETF", colormap_ETF)    
-    asset_bah = ALMc.AssetSplitDetailsChart(problem, sol_bah, "ETF", colormap_ETF)
-
+    plt_bah = ALMc.AssetAllocationChart(problem,sol_bah,n_scen=n_scen, perc = perc, showlegend= False)
     prob, avg = ALMc.GoalRiskDetails(problem, sol, perc)
     prob_bah, avg_bah = ALMc.GoalRiskDetails(problem, sol_bah, perc, showlegend = False)
+
+    showlegend = True
+    horizontal_spacing = 0.03
+
+    fig1 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
+    fig1.add_traces(data=plt.data, rows = 1, cols = 1)
+    fig1.add_traces(data=plt_bah.data, rows = 1, cols = 2)
+    ALMc.standardized_chart(fig1, perc = perc, showlegend= showlegend)
+    legend_top_position(fig1)
 
     fig2 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
     fig2.add_traces(data=prob.data, rows = 1, cols = 1)
@@ -239,16 +281,15 @@ def submit_problem_output(update_btn, user_risk_profile):
     fig2.update_layout(barmode = "stack")
     fig2 = ALMc.standardized_chart(fig2, perc= True, showlegend=showlegend)
     legend_top_position(fig2)
-    #fig2.update_layout(title_text='Shortfall probabilities by goal', title_x=0.5)
 
     fig3 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
     fig3.add_traces(data=avg.data, rows = 1, cols = 1)
     fig3.add_traces(data=avg_bah.data, rows = 1, cols = 2)
     fig3.update_layout(barmode = "overlay")
     fig3 = ALMc.standardized_chart(fig3, perc = perc, showlegend=showlegend)
-    #fig2.update_layout(title_text='Goals payoff details', title_x=0.5)
     legend_top_position(fig3)
-    return [[dcc.Graph(figure = fig1)], [dcc.Graph(figure = fig2)], [dcc.Graph(figure = fig3)], False, False, False]
+
+    return [[get_asset_allocation_tab(fig1)], [get_shortfall_prob_tab(fig2)], [get_goal_payoff_tab(fig3)], False, False, False]
 
 
 if __name__=='__main__':
