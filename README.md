@@ -10,5 +10,7 @@ All strategy performances are compared with a "classic" buy-and-hold invesment s
 A python Dash app is provided to help with example set-up and results visualization.
 
 
+<br>
+
 ### Note
 This is only a personal research project, no commercial use intended.
