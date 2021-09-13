@@ -19,7 +19,6 @@ SIDEBAR_STYLE = {
     'bottom': 0,
     'width': '20%',
     'padding': '20px 10px',
-    #'background-color': '#f8f9fa'
 }
 
 # the style arguments for the main content page.
@@ -40,12 +39,10 @@ TITLE_STYLE = {
 
 TEXT_STYLE = {
     'textAlign': 'center',
-    #'color': '#191970'
 }
 
 CARD_TEXT_STYLE = {
     'textAlign': 'center',
-    #'color': '#0074D9'
 }
 
 BUTTON_STYLE = {
@@ -101,6 +98,24 @@ def legend_top_position(plt):
         x=0.5)
     )
 
+def plan_succes_prob_widget(success_prob,fail_prob):
+    return html.Div(
+    f"""<p style=\"color:green; font-size:150%; text-align:center\">Success:</p> 
+    <p style=\"color:green; font-size:200%; text-align:center\">{success_prob}%</p> 
+    <p style=\"color:red; font-size:150%; text-align:center\">Failure:</p> 
+    <p style=\"color:red; font-size:200%; text-align:center\">{fail_prob}%</p>"""
+    )
+
+def eop_wealth_summary_widget(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
+    return html.Div(
+    f"""<p style=\"color:green; font-size:150%; text-align:center\">Expected total wealth</p>
+    <p style=\"color:green; font-size:200%; text-align:center\">{tot_wealth_avg}€</p>
+    <p style=\"color:gold; font-size:150%; text-align:center\">Expected goals payoff</p>
+    <p style=\"color:gold; font-size:200%; text-align:center\">{paid_advance_avg}€</p>
+    <p style=\"color:red; font-size:150%; text-align:center\">Shortfall in case of failure</p>
+    <p style=\"color:red; font-size:200%; text-align:center\">{avg_loss_in_failure}€</p>"""
+    )
+
 first_example_ID = 1
 first_urp = 23
 
@@ -153,7 +168,11 @@ def get_asset_allocation_tab(asset_allocation_chart):
                     dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
                 ],
             ),
-            dbc.Row(dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = True)),
+            dbc.Row([
+                #dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = '20%'),
+                dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = True),
+                #dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = '20%'),
+            ]),
         ]
     )
 
@@ -166,7 +185,12 @@ def get_shortfall_prob_tab(shortfall_prob_chart):
                     dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
                 ],
             ),
-            dbc.Row(dbc.Col(dcc.Graph(figure = shortfall_prob_chart), width = True)),
+            dbc.Row([
+                dbc.Col(html.Div(), width = '20%'),
+                dbc.Col(dcc.Graph(figure = shortfall_prob_chart), width = '60%'),
+                dbc.Col(html.Div(), width = '20%'),
+            ]
+            ),
         ]
     )
 
@@ -179,7 +203,12 @@ def get_goal_payoff_tab(goal_payoff_chart):
                     dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
                 ],
             ),
-            dbc.Row(dbc.Col(dcc.Graph(figure = goal_payoff_chart), width = True)),
+            dbc.Row([
+                dbc.Col(html.Div(), width = '20%'),
+                dbc.Col(dcc.Graph(figure = goal_payoff_chart), width = '60%'),
+                dbc.Col(html.Div(), width = '20%'),
+            ]
+            ),
         ]
     )
 
