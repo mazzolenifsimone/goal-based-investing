@@ -1,13 +1,14 @@
-# Asset/Liability Management Optimizer
+# Goal-Based Investing optimizer - Demo
 
-ALM Optimizer is a project aimed to create a tool to manage investings with an **Asset-Liability Management** process.<br>
-The Asset/Liability Management process is typically applied to bank loan portfolios and pension plans. An extended definition for ALM process can be found [here](https://www.investopedia.com/terms/a/asset-liabilitymanagement.asp)<br><br>
+Goal-Based Investing optimizer is a project aimed to create a tool to manage investings under a  **Goal-Based Investing** paradigm.<br>
 
-### Principal Assumption
-- The mosto importanti thing is
+The product simulation start with a definition of a user investment plan: user risk attitude, investment assets incoming and financial goals to afford in the next years.
+
+A linear programming model is designed to suite the GBI problem on a delimited investable universe of ETFs.
+All strategy performances are compared with a "classic" buy-and-hold invesment strategy on a efficient portfolio based on historical perfomances of investable universe.
+
+A python Dash app is provided to help with example set-up and results visualization.
 
 
-| Set | Description|
-|---|---|
-| $T$ | Set of discrete instant of time |
-| $E$ in $T$ | Set of discrete instant of time where client invest some money|
+### Note
+This is only a personal research project, no commercial use intended.
