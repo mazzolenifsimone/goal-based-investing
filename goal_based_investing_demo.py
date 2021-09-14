@@ -1,9 +1,12 @@
 
 import dash
+from dash_bootstrap_components._components.Col import Col
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
+from dash_html_components.Font import Font
+from dash_html_components.Hr import Hr
 import plotly.express as px
 import ALMplanner as ALM
 import ALMChart as ALMc
@@ -49,6 +52,68 @@ BUTTON_STYLE = {
     'textAlign':'center',
     'width':'100%',
     'border':'none',
+}
+
+SUCCESS_STYLE = {
+    "color":"green",
+    "font-size":"150%",
+    'textAlign':'center',
+    'width':'100%',
+}
+
+FAILURE_STYLE = {
+    "color":"red",
+    "font-size":"150%",
+    'textAlign':'center',
+    'width':'100%',
+}
+
+TOTAL_WEALTH_STYLE_1 = {
+    "color":"blue",
+    "font-size":"100%",
+    'textAlign':'left',
+    'width':'100%',
+    "vertical-align":"middle",
+}
+
+TOTAL_WEALTH_STYLE_2 = {
+    "color":"blue",
+    "font-size":"150%",
+    'textAlign':'center',
+    'width':'100%',
+    "vertical-align":"middle",
+}
+
+GOAL_PAYOFF_STYLE_1 = {
+    "color":"green",
+    "font-size":"100%",
+    'textAlign':'left',
+    'width':'100%',
+    "vertical-align":"middle",
+}
+
+GOAL_PAYOFF_STYLE_2 = {
+    "color":"green",
+    "font-size":"150%",
+    'textAlign':'center',
+    'width':'100%',
+    "vertical-align":"middle",
+}
+
+FAILURE_SHORTFALL_STYLE_1 = {
+    "color":"red",
+    "font-size":"100%",
+    'textAlign':'left',
+    'width':'100%',
+    "vertical-align":"middle",
+}
+
+FAILURE_SHORTFALL_STYLE_2 = {
+    "color":"red",
+    "font-size":"150%",
+    'textAlign':'center',
+    'width':'100%',
+    "vertical-align":"middle",
 }
 
 example_options = [ {"label": "20y-feasible-3-goals", "value": 1},
@@ -98,22 +163,20 @@ def legend_top_position(plt):
         x=0.5)
     )
 
-def plan_succes_prob_widget(success_prob,fail_prob):
+def plan_succes_prob_Div(success_prob,fail_prob):
     return html.Div(
-    f"""<p style=\"color:green; font-size:150%; text-align:center\">Success:</p> 
-    <p style=\"color:green; font-size:200%; text-align:center\">{success_prob}%</p> 
-    <p style=\"color:red; font-size:150%; text-align:center\">Failure:</p> 
-    <p style=\"color:red; font-size:200%; text-align:center\">{fail_prob}%</p>"""
+        [
+            dbc.Row([dbc.Col(f"Success: {str(success_prob)}%", style = SUCCESS_STYLE,), dbc.Col(f"Failure: {str(fail_prob)}%", style = FAILURE_STYLE),],),
+        ]
     )
 
-def eop_wealth_summary_widget(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
+def eop_wealth_summary_Div(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
     return html.Div(
-    f"""<p style=\"color:green; font-size:150%; text-align:center\">Expected total wealth</p>
-    <p style=\"color:green; font-size:200%; text-align:center\">{tot_wealth_avg}€</p>
-    <p style=\"color:gold; font-size:150%; text-align:center\">Expected goals payoff</p>
-    <p style=\"color:gold; font-size:200%; text-align:center\">{paid_advance_avg}€</p>
-    <p style=\"color:red; font-size:150%; text-align:center\">Shortfall in case of failure</p>
-    <p style=\"color:red; font-size:200%; text-align:center\">{avg_loss_in_failure}€</p>"""
+        [
+            dbc.Row([dbc.Col("Expected total wealth:", style = TOTAL_WEALTH_STYLE_1,), dbc.Col(str(int(tot_wealth_avg))+"€",style=TOTAL_WEALTH_STYLE_2)]),
+            dbc.Row([dbc.Col("Expected goals payoff:", style = GOAL_PAYOFF_STYLE_1), dbc.Col(str(int(paid_advance_avg))+"€", style=GOAL_PAYOFF_STYLE_2)]),
+            dbc.Row([dbc.Col("Shortfall in case of failure:", style = FAILURE_SHORTFALL_STYLE_1), dbc.Col(str(int(avg_loss_in_failure))+"€", style = FAILURE_SHORTFALL_STYLE_2)]),
+        ]
     )
 
 first_example_ID = 1
@@ -155,6 +218,8 @@ sidebar = html.Div([
 def get_planner_tab(planner_chart):
     return html.Div(
         [
+            dbc.Row(dbc.Col(html.Div('Investment Planner',style=TITLE_STYLE))),
+            html.Hr(),
             dbc.Row(dbc.Col(dcc.Graph(figure = planner_chart), width = True)),
         ]
     )
@@ -164,49 +229,58 @@ def get_asset_allocation_tab(asset_allocation_chart):
         [
             dbc.Row(
                 [
-                    dbc.Col(html.Div('Goal-Based strategy',style=TITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Goal-based strategy',style=TITLE_STYLE), width = 6),
                     dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
                 ],
             ),
+            html.Hr(),
             dbc.Row([
-                #dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = '20%'),
                 dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = True),
-                #dbc.Col(dcc.Graph(figure = asset_allocation_chart), width = '20%'),
             ]),
         ]
     )
 
-def get_shortfall_prob_tab(shortfall_prob_chart):
+def get_shortfall_prob_tab(shortfall_prob_chart_gb, shortfall_prob_chart_bah, plan_succes_prob_gb, plan_succes_prob_bah):
     return html.Div(
         [
             dbc.Row(
                 [
-                    dbc.Col(html.Div('Goal-Based strategy',style=TITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Goal-based strategy',style=TITLE_STYLE), width = 6),
                     dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
                 ],
             ),
+            html.Hr(),
             dbc.Row([
-                dbc.Col(html.Div(), width = '20%'),
-                dbc.Col(dcc.Graph(figure = shortfall_prob_chart), width = '60%'),
-                dbc.Col(html.Div(), width = '20%'),
+                dbc.Col(plan_succes_prob_gb, width = 6),
+                dbc.Col(plan_succes_prob_bah, width = 6),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(figure = shortfall_prob_chart_gb), width = 6),
+                #dbc.Col(plan_succes_prob_gb, width = 1),
+                dbc.Col(dcc.Graph(figure = shortfall_prob_chart_bah), width = 6),
+                #dbc.Col(plan_succes_prob_bah, width = 1),
             ]
             ),
         ]
     )
 
-def get_goal_payoff_tab(goal_payoff_chart):
+def get_goal_payoff_tab(goal_payoff_chart_gb, goal_payoff_chart_bah, eop_wealth_summary_gb, eop_wealth_summary_bah):
     return html.Div(
         [
             dbc.Row(
                 [
-                    dbc.Col(html.Div('Goal-Based strategy',style=TITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Goal-based strategy',style=TITLE_STYLE), width = 6),
                     dbc.Col(html.Div('Buy-and-hold strategy',style=TITLE_STYLE), width = 6),
                 ],
             ),
+            html.Hr(),
             dbc.Row([
-                dbc.Col(html.Div(), width = '20%'),
-                dbc.Col(dcc.Graph(figure = goal_payoff_chart), width = '60%'),
-                dbc.Col(html.Div(), width = '20%'),
+                dbc.Col(eop_wealth_summary_gb, width = 6),
+                dbc.Col(eop_wealth_summary_bah, width = 6),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(figure = goal_payoff_chart_gb), width = 6),
+                dbc.Col(dcc.Graph(figure = goal_payoff_chart_bah), width = 6),
             ]
             ),
         ]
@@ -281,8 +355,9 @@ def submit_problem_output(update_btn, user_risk_profile):
     plt = ALMc.AssetAllocationChart(problem,sol,n_scen=n_scen, perc = perc)
     plt_bah = ALMc.AssetAllocationChart(problem,sol_bah,n_scen=n_scen, perc = perc, showlegend= False)
     prob, avg = ALMc.GoalRiskDetails(problem, sol, perc)
-    prob_bah, avg_bah = ALMc.GoalRiskDetails(problem, sol_bah, perc, showlegend = False)
-
+    prob_bah, avg_bah = ALMc.GoalRiskDetails(problem, sol_bah, perc)
+    success_prob, fail_prob, tot_wealth_avg, paid_advance_avg, avg_loss_in_failure = ALMc.EoPWealthInfo(problem, sol)
+    success_prob_bah, fail_prob_bah, tot_wealth_avg_bah, paid_advance_avg_bah, avg_loss_in_failure_bah = ALMc.EoPWealthInfo(problem, sol_bah)
     showlegend = True
     horizontal_spacing = 0.03
 
@@ -297,7 +372,16 @@ def submit_problem_output(update_btn, user_risk_profile):
     fig2.add_traces(data=prob_bah.data, rows = 1, cols = 2)
     fig2.update_layout(barmode = "stack")
     fig2 = ALMc.standardized_chart(fig2, perc= True, showlegend=showlegend)
-    legend_top_position(fig2)
+    #legend_top_position(fig2)
+    legend_top_position(prob)
+    legend_top_position(prob_bah)
+    legend_top_position(avg)
+    legend_top_position(avg_bah)
+
+    ps_Div_gb = plan_succes_prob_Div(success_prob,fail_prob)
+    ps_Div_bah = plan_succes_prob_Div(success_prob_bah,fail_prob_bah)
+    eop_Div_gb = eop_wealth_summary_Div(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure)
+    eop_Div_bah = eop_wealth_summary_Div(tot_wealth_avg_bah,paid_advance_avg_bah,avg_loss_in_failure_bah)
 
     fig3 = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = horizontal_spacing))
     fig3.add_traces(data=avg.data, rows = 1, cols = 1)
@@ -306,7 +390,7 @@ def submit_problem_output(update_btn, user_risk_profile):
     fig3 = ALMc.standardized_chart(fig3, perc = perc, showlegend=showlegend)
     legend_top_position(fig3)
 
-    return [[get_asset_allocation_tab(fig1)], [get_shortfall_prob_tab(fig2)], [get_goal_payoff_tab(fig3)], False, False, False]
+    return [[get_asset_allocation_tab(fig1)], [get_shortfall_prob_tab(prob,prob_bah,ps_Div_gb,ps_Div_bah)], [get_goal_payoff_tab(avg,avg_bah,eop_Div_gb,eop_Div_bah)], False, False, False]
 
 
 if __name__=='__main__':
