@@ -26,7 +26,6 @@ class ALMplanner:
         self.feasibility = -1
         self.liabilities = ALMLiability(self)
         self.assets = ALMAssets(self)
-
         self.colormap_P = {}
         it = -1
         for p in self.P:
