@@ -4,6 +4,9 @@ import pulp as lp
 import pickle as pkl
 import time
 import os
+import plotly.express as px
+import plotly.graph_objects as go
+
 
 class ALMplanner:
 
@@ -22,7 +25,13 @@ class ALMplanner:
         self.user_risk_profile = user_risk_profile
         self.feasibility = -1
         self.liabilities = ALMLiability(self)
-        self.assets = ALMAssets(self) 
+        self.assets = ALMAssets(self)
+
+        self.colormap_P = {}
+        it = -1
+        for p in self.P:
+            it = it+1
+            self.colormap_P[p] = px.colors.qualitative.Plotly[it%10]
         
 
     def check_feasibility(self):
@@ -449,3 +458,32 @@ def save_solution(model):
             model.solution.loss_distr[l][n] = model.V[l][n].varValue
     for n in model.N:
         model.solution.final_exwealth[n] = model.Q_end[n].varValue
+
+
+# Demo Example Definition
+
+
+def generate_example(example_ID, user_risk_profile):
+    if example_ID == 1:
+        problem = ALMplanner(start = "2021", end = "2041", user_risk_profile = user_risk_profile)
+        problem.liabilities.insert("car", "2026", 25000, 25000*0.65)
+        problem.liabilities.insert("university", "2029", 50000, 50000*0.95)
+        problem.liabilities.insert("hawaii", "2037",25000, 25000*0.85) 
+        problem.assets.insert("init","Jan 2021",30000)
+        add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
+    elif example_ID == 3:
+        problem = ALMplanner(start = "Jan 2021", end = "Jan 2061", user_risk_profile = user_risk_profile)
+        add_recurrent(problem, start = "Jan 2021", end = "Jan 2040", type = "asset", value = 1000, label = "ass")
+        add_recurrent(problem, start = "Jan 2041", end = "Jan 2060", type = "goal", value_tg = 1500, value_lb = 1100, label = "ret")
+    elif example_ID == 4:
+        problem = ALMplanner(start = "2021", end = "2041", user_risk_profile = user_risk_profile)
+        problem.liabilities.insert("car", "2036", 45000, 45000*0.65) 
+        problem.assets.insert("init","Jan 2021",40000)
+    elif example_ID == 2:
+        problem = ALMplanner(start = "2021", end = "2041", user_risk_profile = user_risk_profile)
+        problem.liabilities.insert("car", "2026", 30000, 30000*0.65)
+        problem.liabilities.insert("university", "2029", 50000, 50000*0.95)
+        problem.liabilities.insert("hawaii", "2037",30000, 30000*0.85) 
+        problem.assets.insert("init","Jan 2021",30000)
+        add_recurrent(problem, start = "Jan 2022", end = "Jan 2027", type = "asset", value = 10000, label = "ass")
+    return problem
