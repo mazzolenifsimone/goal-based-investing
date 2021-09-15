@@ -2,8 +2,4 @@ env/
 scenario/
 __pycache__/
 bib/
-example/
 doc/
-Dashtest.ipynb
-GoalBasedApp.py
-ALMplanner_app.py
