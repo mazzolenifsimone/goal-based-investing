@@ -20,19 +20,24 @@ def standardized_chart(plt, perc = False, showlegend = False):
         plt.update_yaxes(autorange = True)
     return plt
 
+def legend_top_position(plt):
+    plt.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.01,
+        xanchor="center",
+        x=0.5)
+    )
+
 def planner_chart(planner, bar_width=6):
     ETF_GBM = planner.__DF_Scenario__
-
     portfolio = pd.Series(planner.user_portfolio.values(),index = planner.user_portfolio.keys())
     userpf_capfact = np.dot(np.exp(ETF_GBM[planner.P]), portfolio)
     cap_factor_ptf = np.reshape(userpf_capfact, (int(len(userpf_capfact)/len(planner.N)),len(planner.N)))
-
     SMF = planner.StandardModelForm()
-
     Ass_val = SMF["Asset Value"].fillna(0)
     Liab_val = SMF["Goal Value"].fillna(0)
     low_Liab_val = SMF["Goal Lower Bound"].fillna(0)
-
     up_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
     med_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
     low_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
@@ -45,11 +50,9 @@ def planner_chart(planner, bar_width=6):
             up_capitalized_value_n[i,:] = np.maximum(up_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - Liab_val[i],0)
             med_capitalized_value_n[i,:] = np.maximum(med_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - (Liab_val[i]+low_Liab_val[i])/2,0)
             low_capitalized_value_n[i,:] = np.maximum(low_capitalized_value_n[i-1,:] * cap_factor_ptf[i,:] + Ass_val[i] - low_Liab_val[i], 0)
-
     med_capitalized_value = np.quantile(med_capitalized_value_n, 0.5,axis=1)
     up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
     low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
-    
     fig = go.Figure(data = [
         go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "assets invested",marker_line = dict(width = 1.5, color = "steelblue")),
         go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "optimal goals",marker_line = dict(width = 1.5, color = "dimgray")),
@@ -61,16 +64,11 @@ def planner_chart(planner, bar_width=6):
         ],
         layout = go.Layout(barmode = "overlay")
     )
-
     fig = standardized_chart(fig)
     lowerlimit = min(-max(Liab_val),min(np.cumsum(Ass_val-Liab_val)))
     upperlimit = max(med_capitalized_value)
     margin = -lowerlimit*0.25
     fig.update_yaxes(range=[lowerlimit - margin , upperlimit+margin])
-    #fig.update_layout(   title={'text': "Investment Planner"},
-    #                    showlegend=True,
-    #                    legend_traceorder="normal"
-    #                )
     fig.update_xaxes(title_text='Months since start')
     fig.update_yaxes(title_text='Wealth')
     return fig
@@ -153,6 +151,7 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio
     AAChart = standardized_chart(AAChart, perc = perc, showlegend = showlegend)
     for i in np.arange(len(AAChart.data)):
         AAChart.data[i]["showlegend"] = showlegend
+    AAChart = legend_top_position(AAChart)
     return AAChart
 
 def AssetSplitDetailsChart(planner, solution, groupby, colormap):
@@ -174,7 +173,6 @@ def AssetSplitDetailsChart(planner, solution, groupby, colormap):
             Assets_split["Goal"][it] = "extra_wealth"
             Assets_split["ETF"][it] = p
             Assets_split["Value"][it] = solution.asset_to_exwealth[a][p]
-
     AssetGroupedBy = Assets_split[["Asset", groupby, "Value"]].groupby(by=[groupby, "Asset"]).sum().reset_index()
     AssetPivot = AssetGroupedBy.pivot(index = "Asset", columns=groupby, values = "Value")
     AssetPivot["Period"] = pd.Series(planner.assets.period)
@@ -192,6 +190,7 @@ def AssetSplitDetailsChart(planner, solution, groupby, colormap):
         data.append(go.Bar(x = AssetPivot.index, y = AssetPivot[e], marker_color = colormap[e], name = e))
     ASDChart = go.FigureWidget(data = data, layout = go.Layout(barmode = "stack"))
     ASDChart = standardized_chart(ASDChart)
+    ASDChart = legend_top_position(ASDChart)
     return ASDChart
 
 def GoalRiskDetails(planner, solution, perc, showlegend = True):
@@ -223,13 +222,13 @@ def GoalRiskDetails(planner, solution, perc, showlegend = True):
         layout = go.Layout(barmode = "stack")
             )
     GSPChart = standardized_chart(GSPChart, perc = True, showlegend=showlegend)
+    GSPChart = legend_top_position(GSPChart)
     # Goal Avg and Worst when shortfall
     df = pd.DataFrame(index = planner.liabilities.set)
     #  - Goal value 
     df["goal"] = pd.Series(planner.liabilities.value_tg, index = planner.liabilities.set)
     #  - Average wealth obtained (or # Average wealth obtained in case of shortfall)
     df["avg"] = np.round(df_Q_ln[planner.liabilities.set].mean(),0)
-    #df["avg"] = np.round(df_Q_ln[planner.liabilities.set][(df_Q_ln[planner.liabilities.set] < conf_tg[planner.liabilities.set])].mean(),0)
     #  - Goal lower bound
     df["lower_bound"] = pd.Series(planner.liabilities.value_lb, index = planner.liabilities.set)
     #  - Average worst 5% wealth obtained
@@ -250,6 +249,7 @@ def GoalRiskDetails(planner, solution, perc, showlegend = True):
         layout = go.Layout(barmode = "overlay")
             )
     GAWChart = standardized_chart(GAWChart, perc = perc, showlegend = showlegend)
+    GAWChart = legend_top_position(GAWChart)
     return GSPChart, GAWChart
 
 def EoPWealthInfo(planner, solution):
