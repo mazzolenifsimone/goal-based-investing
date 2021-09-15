@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
+from plotly.subplots import make_subplots
 
 def standardized_chart(plt, perc = False, showlegend = False):
     plt.update_layout(
@@ -18,7 +18,6 @@ def standardized_chart(plt, perc = False, showlegend = False):
         plt.update_yaxes(range=[0, 1])
     else:
         plt.update_yaxes(autorange = True)
-    return plt
 
 def legend_top_position(plt):
     plt.update_layout(legend=dict(
@@ -64,7 +63,7 @@ def planner_chart(planner, bar_width=6):
         ],
         layout = go.Layout(barmode = "overlay")
     )
-    fig = standardized_chart(fig)
+    standardized_chart(fig)
     lowerlimit = min(-max(Liab_val),min(np.cumsum(Ass_val-Liab_val)))
     upperlimit = max(med_capitalized_value)
     margin = -lowerlimit*0.25
@@ -148,11 +147,19 @@ def AssetAllocationChart(planner, solution, n_scen=None, perc = False, portfolio
         AssetAllocationNominal = AssetAllocationNominal.reset_index()
         AssetAllocationNominal = AssetAllocationNominal.melt(id_vars=['index'], var_name='P', value_name='evo')
         AAChart = px.area(AssetAllocationNominal, x="index", y = "evo", color = "P")
-    AAChart = standardized_chart(AAChart, perc = perc, showlegend = showlegend)
+    standardized_chart(AAChart, perc = perc, showlegend = showlegend)
     for i in np.arange(len(AAChart.data)):
         AAChart.data[i]["showlegend"] = showlegend
-    AAChart = legend_top_position(AAChart)
+    legend_top_position(AAChart)
     return AAChart
+
+def AssetAllocationComparison(AAChart_gb,AAChart_bah, perc = False):
+    AACharts = go.FigureWidget(make_subplots(rows = 1, cols = 2, shared_yaxes= True, horizontal_spacing = 0.03))
+    AACharts.add_traces(data=AAChart_gb.data, rows = 1, cols = 1)
+    AACharts.add_traces(data=AAChart_bah.data, rows = 1, cols = 2)
+    standardized_chart(AACharts, perc = perc, showlegend = True)
+    legend_top_position(AACharts)
+    return AACharts
 
 def AssetSplitDetailsChart(planner, solution, groupby, colormap):
     P = planner.P
@@ -189,8 +196,8 @@ def AssetSplitDetailsChart(planner, solution, groupby, colormap):
     for e in groupby_set:
         data.append(go.Bar(x = AssetPivot.index, y = AssetPivot[e], marker_color = colormap[e], name = e))
     ASDChart = go.FigureWidget(data = data, layout = go.Layout(barmode = "stack"))
-    ASDChart = standardized_chart(ASDChart)
-    ASDChart = legend_top_position(ASDChart)
+    standardized_chart(ASDChart)
+    legend_top_position(ASDChart)
     return ASDChart
 
 def GoalRiskDetails(planner, solution, perc, showlegend = True):
@@ -221,8 +228,8 @@ def GoalRiskDetails(planner, solution, perc, showlegend = True):
                 ],
         layout = go.Layout(barmode = "stack")
             )
-    GSPChart = standardized_chart(GSPChart, perc = True, showlegend=showlegend)
-    GSPChart = legend_top_position(GSPChart)
+    standardized_chart(GSPChart, perc = True, showlegend=showlegend)
+    legend_top_position(GSPChart)
     # Goal Avg and Worst when shortfall
     df = pd.DataFrame(index = planner.liabilities.set)
     #  - Goal value 
@@ -248,8 +255,8 @@ def GoalRiskDetails(planner, solution, perc, showlegend = True):
                 ],
         layout = go.Layout(barmode = "overlay")
             )
-    GAWChart = standardized_chart(GAWChart, perc = perc, showlegend = showlegend)
-    GAWChart = legend_top_position(GAWChart)
+    standardized_chart(GAWChart, perc = perc, showlegend = showlegend)
+    legend_top_position(GAWChart)
     return GSPChart, GAWChart
 
 def EoPWealthInfo(planner, solution):
