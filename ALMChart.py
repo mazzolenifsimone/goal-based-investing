@@ -34,9 +34,9 @@ def planner_chart(planner, bar_width=6):
     userpf_capfact = np.dot(np.exp(ETF_GBM[planner.P]), portfolio)
     cap_factor_ptf = np.reshape(userpf_capfact, (int(len(userpf_capfact)/len(planner.N)),len(planner.N)))
     SMF = planner.StandardModelForm()
-    Ass_val = SMF["Asset Value"].fillna(0)
-    Liab_val = SMF["Goal Value"].fillna(0)
-    low_Liab_val = SMF["Goal Lower Bound"].fillna(0)
+    Ass_val = SMF["Asset Invested"].fillna(0)
+    Liab_val = SMF["Optimal Goal"].fillna(0)
+    low_Liab_val = SMF["Minimum Goal"].fillna(0)
     up_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
     med_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
     low_capitalized_value_n = np.zeros(shape = (SMF.shape[0], len(planner.N)))
@@ -53,9 +53,9 @@ def planner_chart(planner, bar_width=6):
     up_capitalized_value = np.quantile(up_capitalized_value_n,0.95, axis=1)
     low_capitalized_value = np.quantile(low_capitalized_value_n,0.05, axis=1)
     fig = go.Figure(data = [
-        go.Bar(x = SMF["Month since Start"], y=SMF["Asset Value"], width = bar_width, marker_color = "royalblue", name = "assets invested",marker_line = dict(width = 1.5, color = "steelblue")),
-        go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Value"], width = bar_width,marker_color = "gold", name = "optimal goals",marker_line = dict(width = 1.5, color = "dimgray")),
-        go.Bar(x = SMF["Month since Start"], y=-SMF["Goal Lower Bound"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "minimum goals"),
+        go.Bar(x = SMF["Month since Start"], y=SMF["Asset Invested"], width = bar_width, marker_color = "royalblue", name = "assets invested",marker_line = dict(width = 1.5, color = "steelblue")),
+        go.Bar(x = SMF["Month since Start"], y=-SMF["Optimal Goal"], width = bar_width,marker_color = "gold", name = "optimal goals",marker_line = dict(width = 1.5, color = "dimgray")),
+        go.Bar(x = SMF["Month since Start"], y=-SMF["Minimum Goal"], width = bar_width,marker_color = "white", marker_opacity = 1, marker_line = dict(width = 2, color = "dimgray"), name = "minimum goals"),
         go.Scatter(x = SMF["Month since Start"], y=up_capitalized_value, fill = None, mode = "lines", line_color = "lightblue", name ="90% confidence band", showlegend = False, legendgroup = "bell"),
         go.Scatter(x = SMF["Month since Start"], y=low_capitalized_value, fill = "tonexty", mode = "lines", line_color = "lightblue", name = "90% confidence band", legendgroup = "bell"),
                     go.Scatter(x = SMF["Month since Start"], y=np.cumsum(Ass_val-Liab_val), mode = "lines", line_color = "black", name = "wealth consumption"),

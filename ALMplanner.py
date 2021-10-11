@@ -58,7 +58,7 @@ class ALMplanner:
     def StandardModelForm(self):
         Assets = self.assets.lists()
         Liabilities = self.liabilities.lists()
-        SMF = pd.DataFrame({"Date":self.T,"Month since Start":np.arange(len(self.T))}).merge(Assets[["Month since Start","Asset Value"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Goal Value", "Goal Lower Bound", "CVaR Level"]], how = "left", on = "Month since Start").reset_index()#.fillna(0).reset_index()
+        SMF = pd.DataFrame({"Date":self.T,"Month since Start":np.arange(len(self.T))}).merge(Assets[["Month since Start","Asset Invested"]], how = "left", on = "Month since Start").merge(Liabilities[["Month since Start","Optimal Goal", "Minimum Goal", "CVaR Level"]], how = "left", on = "Month since Start").reset_index()#.fillna(0).reset_index()
         return SMF
 
 
@@ -87,12 +87,12 @@ class ALMLiability():
         
 
     def lists(self):
-        ListOfLiabilities = pd.DataFrame(index=self.set, columns = ["Date", "Month since Start", "Goal Value", "Goal Lower Bound", "CVaR Level"])
+        ListOfLiabilities = pd.DataFrame(index=self.set, columns = ["Date", "Month since Start", "Optimal Goal", "Minimum Goal", "CVaR Level"])
         for i in ListOfLiabilities.index:
             ListOfLiabilities["Date"][i] = self.date[i]
             ListOfLiabilities["Month since Start"][i] = self.period[i]
-            ListOfLiabilities["Goal Value"][i] = self.value_tg[i]
-            ListOfLiabilities["Goal Lower Bound"][i] = self.value_lb[i]
+            ListOfLiabilities["Optimal Goal"][i] = self.value_tg[i]
+            ListOfLiabilities["Minimum Goal"][i] = self.value_lb[i]
             ListOfLiabilities["CVaR Level"][i] = self.cvar_lim[i]
         return ListOfLiabilities.sort_values(by = "Date")
 
@@ -118,9 +118,9 @@ class ALMAssets():
         
 
     def lists(self):
-        ListOfAsset = pd.DataFrame(index=self.set, columns = ["Date", "Month since Start", "Asset Value"])
+        ListOfAsset = pd.DataFrame(index=self.set, columns = ["Date", "Month since Start", "Asset Invested"])
         for i in ListOfAsset.index:
-            ListOfAsset["Asset Value"][i] = self.value[i]
+            ListOfAsset["Asset Invested"][i] = self.value[i]
             ListOfAsset["Date"][i] = self.date[i]
             ListOfAsset["Month since Start"][i] = self.period[i]
         return ListOfAsset.sort_values(by = "Date")
@@ -330,10 +330,10 @@ def smart_asset_allocation(planner):
     Lt = Liabs_list["Month since Start"]
     L = Liabs_list.index
     #Liab_tg = Liabs_list["Goal Value"]
-    Liab_lb = Liabs_list["Goal Lower Bound"]
+    Liab_lb = Liabs_list["Minimum Goal"]
     At = Assets_list["Month since Start"]
     A = Assets_list.index
-    Assets = Assets_list["Asset Value"]
+    Assets = Assets_list["Asset Invested"]
     # DataFrame structure 
     asset_split = pd.DataFrame(0,columns = L, index = A)
     total_asset = Assets.sum()

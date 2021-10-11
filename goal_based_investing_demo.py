@@ -1,5 +1,5 @@
-
 import dash
+import dash_table
 from dash_bootstrap_components._components.Col import Col
 import dash_core_components as dcc
 import dash_html_components as html
@@ -11,7 +11,6 @@ import plotly.express as px
 import ALMplanner as ALM
 import ALMChart as ALMc
 import plotly.express as px
-import plotly.graph_objects as go
 
 
 
@@ -50,6 +49,7 @@ SIDEBAR_STYLE = {
     'left': 0,
     'bottom': 0,
     'width': '20%',
+    'margin-left': '2%',
     'padding': '20px 10px',
 }
 
@@ -71,7 +71,7 @@ TITLE_STYLE = {
     'textAlign':'center',
     'font-weight':'bold',
     'font-size':'150%',
-    'margin-top':'5%',
+    'margin-top':'1%',
     'margin-left':'5%',
 }
 
@@ -239,14 +239,22 @@ app.layout = html.Div([sidebar, content])
 # Callbacks and functions #
 ###########################
 
-def plan_succes_prob_Div(success_prob,fail_prob):
+def get_planner_datatable(df):
+    df_index = df.reset_index().rename(columns= {"index" : "Label"})
+    return dash_table.DataTable(
+        id='assettable',
+        columns=[{"name": i, "id": i} for i in df_index.columns],
+        data=df_index.to_dict('records'),
+    )
+
+def plan_succes_prob_form(success_prob,fail_prob):
     return html.Div(
         [
             dbc.Row([dbc.Col(f"Success: {str(success_prob)}%", style = SUCCESS_STYLE,), dbc.Col(f"Failure: {str(fail_prob)}%", style = FAILURE_STYLE),],),
         ]
     )
 
-def eop_wealth_summary_Div(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
+def eop_wealth_summary_form(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
     return html.Div(
         [
             dbc.Row([dbc.Col("Expected total wealth:", style = TOTAL_WEALTH_STYLE_1,), dbc.Col(str(int(tot_wealth_avg))+"€",style=TOTAL_WEALTH_STYLE_2)]),
@@ -255,15 +263,32 @@ def eop_wealth_summary_Div(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure):
         ],
     )
 
-def get_planner_tab(planner_chart):
+def get_planner_tab(problem):
+    problem_chart = ALMc.planner_chart(problem, bar_width=6)
+    ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
     return html.Div(
         [
-            dbc.Row(dbc.Col(html.Div('Investment Planner',style=TITLE_STYLE))),
+            dbc.Row([dbc.Col('Investment Planner',style=TITLE_STYLE)]),
             html.Hr(),
-            dbc.Row(dbc.Col(dcc.Graph(figure = planner_chart), width = True)),
+            dbc.Row([dbc.Col(dcc.Graph(figure = problem_chart), width = True)]),
+            html.Hr(),
+            dbc.Row(
+                [
+                    dbc.Col(html.Div('Assets input',style=SUBTITLE_STYLE), width = 6),
+                    dbc.Col(html.Div('Goals input' ,style=SUBTITLE_STYLE), width = 6),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(get_planner_datatable(problem.assets.lists().drop("Date", axis = 1)), width = 6),
+                    dbc.Col(get_planner_datatable(problem.liabilities.lists().drop(["Date", "CVaR Level"], axis = 1)), width = 6)
+                ]
+            )
+
         ],
         style = SUBTAB_STYLE,
     )
+
 
 def get_asset_allocation_tab(asset_allocation_chart):
     return html.Div(
@@ -305,14 +330,22 @@ def get_goal_payoff_tab(title,goal_payoff_chart, eop_wealth_summary):
         style = SUBTAB_STYLE,
     )
 
-@app.callback([Output('planner_tab', 'children')],[Input('update_chart','n_clicks'), State('example_id', 'value'),State('user_risk_profile', 'value')])#, prevent_initial_call = True)
+@app.callback(
+    [
+        Output('planner_tab', 'children')
+    ],
+    [
+        Input('update_chart','n_clicks'),
+        State('example_id', 'value'),
+        State('user_risk_profile', 'value')
+    ],
+    #prevent_initial_call = True,
+    )
 def update_planner_graph(update_btn, example_id, user_risk_profile):
     if not(example_id is None):
         global problem
         problem = ALM.generate_example(example_id, user_risk_profile)
-        problem_chart = ALMc.planner_chart(problem, bar_width=6)
-        ALMc.standardized_chart(problem_chart, perc = False, showlegend= True)
-    return [get_planner_tab(problem_chart)]
+    return [get_planner_tab(problem)]
 
 @app.callback(
     [
@@ -348,10 +381,10 @@ def submit_problem_output(update_btn, user_risk_profile):
     success_prob, fail_prob, tot_wealth_avg, paid_advance_avg, avg_loss_in_failure = ALMc.EoPWealthInfo(problem, sol)
     success_prob_bah, fail_prob_bah, tot_wealth_avg_bah, paid_advance_avg_bah, avg_loss_in_failure_bah = ALMc.EoPWealthInfo(problem, sol_bah)
 
-    ps_Div_gb = plan_succes_prob_Div(success_prob,fail_prob)
-    ps_Div_bah = plan_succes_prob_Div(success_prob_bah,fail_prob_bah)
-    eop_Div_gb = eop_wealth_summary_Div(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure)
-    eop_Div_bah = eop_wealth_summary_Div(tot_wealth_avg_bah,paid_advance_avg_bah,avg_loss_in_failure_bah)
+    ps_Div_gb = plan_succes_prob_form(success_prob,fail_prob)
+    ps_Div_bah = plan_succes_prob_form(success_prob_bah,fail_prob_bah)
+    eop_Div_gb = eop_wealth_summary_form(tot_wealth_avg,paid_advance_avg,avg_loss_in_failure)
+    eop_Div_bah = eop_wealth_summary_form(tot_wealth_avg_bah,paid_advance_avg_bah,avg_loss_in_failure_bah)
 
     return [
         [get_asset_allocation_tab(AACharts)], 
