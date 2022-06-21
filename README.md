@@ -1,6 +1,6 @@
 # Goal-Based Investing optimizer - Demo
 
-Goal-Based Investing optimizer is a project aimed to create a tool to manage investings under a  **Goal-Based Investing** paradigm.<br>
+Goal-Based Investing optimizer is a tool aimed at managing investings under a **Goal-Based Investing** paradigm.<br>
 
 The product simulation start with a definition of a user investment plan: user risk attitude, investment assets incoming and financial goals to afford in the next years.
 
